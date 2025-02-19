@@ -5790,4 +5790,31 @@ label {
   .footer-text i {
     color: #ffba00; }
 
+    /* Style for the Google Signup button */
+.google-signup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  color: #757575;
+  font-size: 14px;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.google-signup-btn:hover {
+  background-color: #f5f5f5;
+}
+
+/* Style for the Google icon */
+.google-icon {
+  width: 20px; /* Adjust the size as needed */
+  height: 20px; /* Adjust the size as needed */
+  margin-right: 10px; /* Space between the icon and text */
+}
+
+
 /*# sourceMappingURL=main.css.map */

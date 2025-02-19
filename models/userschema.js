@@ -3,19 +3,23 @@ const mongoose = require('mongoose');
 const {Schema} = mongoose;
 
 const userschema =  new Schema({
-    name: {
+    firstName: {
         type : String,
         required : true
     },
-    email:{
+    lastName:{
+        type : String,
+        required : true
+    }
+    ,email:{
         type : String,
         required : true,
         unique : true
     },
-    phone_no:{
+    phoneNumber:{
         type : Number,
         required : false,
-        unique :    false,
+        unique :  true,
         sparse : true
       },
       googleId:{
@@ -33,7 +37,7 @@ const userschema =  new Schema({
       },
       isAdmin:{
         type:Boolean,
-        required:false
+        default:false
       },
       cart:[{
         type:Schema.Types.ObjectId,
@@ -58,15 +62,18 @@ const userschema =  new Schema({
       },
       referalCode:{
         type:String,
+        // required:true
         
       },
       redeemed:{
         type:Boolean,
+        // default:false 
         
       },
       redeemedUsers:[{
         type:Schema.Types.ObjectId,
-        ref:'users'
+        ref:'users',
+        // required:true
       }],
       searchHistory:[{
         category:{
@@ -78,7 +85,8 @@ const userschema =  new Schema({
         type:String
       },
       searchOn:{
-        type:Date.now
+        type:Date,
+        default:Date.now
       }
 
 

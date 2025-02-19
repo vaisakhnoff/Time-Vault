@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Basic Meta & Title -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Admin Login | Time Vault</title>
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/fav.png">
+
+  <!-- CSS Files (Your existing styles) -->
+  <link rel="stylesheet" href="/css/linearicons.css">
+  <link rel="stylesheet" href="/css/owl.carousel.css">
+  <link rel="stylesheet" href="/css/themify-icons.css">
+  <link rel="stylesheet" href="/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/css/nice-select.css">
+  <link rel="stylesheet" href="/css/nouislider.min.css">
+  <link rel="stylesheet" href="/css/bootstrap.css">
+  <link rel="stylesheet" href="/css/main.css">
+
+  <style>
+    /* If you’re using a background video or image, ensure it’s behind everything else. */
+    #video-background, .background-image {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1; /* Place behind content */
+    }
+
+    /* --- Brand Header --- */
+    .brand-header {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 2.5rem;
+      color: #fff; /* White text; adjust if needed */
+      font-weight: bold;
+    }
+
+    /* --- Login Container --- */
+    .login-container {
+      position: relative; /* so it sits above the background */
+      max-width: 400px;
+      margin: 40px auto; /* adjust top/bottom margin as needed */
+      padding: 30px;
+      /* Use RGBA for semi-transparent white background */
+      background: rgba(255, 255, 255, 0.8); 
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    .login-container h2 {
+      margin-bottom: 20px;
+    }
+    .error-message {
+      color: red;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Example: If using a background video, uncomment below -->
+  
+  <video 
+    id="video-background" 
+    autoplay 
+    muted 
+    loop 
+    playsinline
+  >
+    <source src="/videos/admin-bg.mp4" type="video/mp4">
+    Your browser does not support HTML5 video.
+  </video>
+  -->
+
+  <!-- Example: If using a static background image, uncomment below -->
+  <!--
+  <img 
+    src="/img/bg-admin.jpg" 
+    alt="Background" 
+    class="background-image" 
+  />
+  
+
+  <!-- Brand Name at the Top -->
+  <div class="brand-header">Time Vault</div>
+
+  <div class="login-container">
+    <h2 class="text-center">Admin Login</h2>
+    <% if (message) { %>
+      <div class="alert alert-danger text-center"><%= message %></div>
+    <% } %>
+    <form id="adminLoginForm" method="post" action="/admin/login">
+      <div class="form-group">
+        <label for="adminEmail">Email address</label>
+        <input
+          type="email"
+          class="form-control"
+          id="adminEmail"
+          name="email"
+          placeholder="Enter email"
+          required
+        >
+        <div id="emailError" class="error-message"></div>
+      </div>
+      <div class="form-group">
+        <label for="adminPassword">Password</label>
+        <input
+          type="password"
+          class="form-control"
+          id="adminPassword"
+          name="password"
+          placeholder="Enter password"
+          required
+        >
+        <div id="passwordError" class="error-message"></div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Log In</button>
+    </form>
+  </div>
+
+  <!-- JavaScript Files -->
+  <script src="/js/vendor/jquery-2.2.4.min.js"></script>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"
+    integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4"
+    crossorigin="anonymous"
+  ></script>
+  <script src="/js/vendor/bootstrap.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const adminLoginForm = document.getElementById("adminLoginForm");
+      const emailField = document.getElementById("adminEmail");
+      const passwordField = document.getElementById("adminPassword");
+      const emailError = document.getElementById("emailError");
+      const passwordError = document.getElementById("passwordError");
+
+      adminLoginForm.addEventListener("submit", function (event) {
+        let isValid = true;
+        const emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
+        if (!emailPattern.test(emailField.value)) {
+          emailError.textContent = "Invalid email format";
+          isValid = false;
+        } else {
+          emailError.textContent = "";
+        }
+        if (passwordField.value.length < 8) {
+          passwordError.textContent = "Password should contain at least 8 characters";
+          isValid = false;
+        } else {
+          passwordError.textContent = "";
+        }
+        if (!isValid) {
+          event.preventDefault();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
