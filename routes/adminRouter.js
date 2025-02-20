@@ -24,6 +24,8 @@ router.get('/unblockCustomer',auth.admincheckSession,customerController.unblockC
 
 router.get('/category',auth.admincheckSession,categoryController.categoryInfo)
 router.post('/addCategory',auth.admincheckSession,categoryController.addCategory)
+router.post('/addCategoryOffer',auth.admincheckSession,categoryController.addCategoryOffer);
+router.post('/removeCategoryoffer',auth.admincheckSession,categoryController.removeCategoryoffer);
 
 module.exports =router;
 

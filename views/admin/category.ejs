@@ -127,16 +127,25 @@
                     <td></td>
                     <td class="text-start"><%=category.name%></td>
                     <td class="text-start"><%=category.description%></td>
-                    <td>
-                    </td>
-                    <td class="text-start">
-                      <button class="btn btn-info" style="width: 100px">
-                        <a href="#" class="text-white">Add Offer</a>
-                      </button>
-                      <button class="btn btn-info"style="width: 100px">
-                        <a href="#" class="text-white">Remove</a>
-                      </button>
-                    </td>
+                    <td id="offer-value-<%= category._id %>">
+                        <% if(category.categoryOffer){ %>
+                          <%= category.categoryOffer %>%
+                        <% } else { %>
+                          0%
+                        <% } %>
+                      </td>
+                      <td class="text-start">
+                        <% if(category.categoryOffer === 0){ %>
+                          <button id="offer-btn-<%= category._id %>" class="btn btn-info" style="width: 100px">
+                            <a href="#" class="text-white" onclick="addOffer('<%= category._id %>')">Add Offer</a>
+                          </button>
+                        <% } else { %>
+                          <button id="offer-btn-<%= category._id %>" class="btn btn-info" style="width: 100px">
+                            <a href="#" class="text-white" onclick="removeOffer('<%= category._id %>')">Remove</a>
+                          </button>
+                        <% } %>
+                      </td>
+                      
                     <td class="text-start">
                       <span class="badge rounded-pill alert-success" style="width: 60px">Listed</span>
                       <span class="badge rounded-pill alert-danger" style="width: 60px">Unlisted</span>
@@ -267,5 +276,84 @@
             element.style.display = "none";
         });
     }
-  </script>
 
+    async function addOffer(categoryId) {
+    const { value: amount } = await Swal.fire({
+        title: "Offer in percentage",
+        input: "number",
+        inputLabel: "Percentage",
+        inputPlaceholder: "%"
+    });
+    if (amount) {
+        try {
+            const response = await fetch('/admin/addCategoryOffer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    percentage: amount,
+                    categoryId: categoryId,
+                })
+            });
+            const data = await response.json();
+            if (response.ok && data.status === true) {
+                Swal.fire({
+                    icon: "success",
+                    title: "Offer added",
+                    text: "Offer added successfully"
+                }).then(() => {
+                    // Update the offer value in the table
+                    document.getElementById("offer-value-" + categoryId).innerText = amount + "%";
+                    // Change the button to "Remove"
+                    document.getElementById("offer-btn-" + categoryId).innerHTML =
+                        '<a href="#" class="text-white" onclick="removeOffer(\'' + categoryId + '\')">Remove</a>';
+                });
+            } else {
+                Swal.fire("Failed", data.message || "Adding Offer Failed", "error");
+            }
+        } catch (error) {
+            Swal.fire("Error", "An error occurred while adding the offer", "error");
+            console.error("Error adding offer", error);
+        }
+    }
+}
+
+
+async function removeOffer(categoryId) {
+    try {
+        const response = await fetch("/admin/removeCategoryoffer", {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                categoryId: categoryId,
+            })
+        });
+        const data = await response.json();
+        if (response.ok && data.status === true) {
+            Swal.fire({
+                icon: "success",
+                title: "Offer removed",
+                text: "The offer has been removed"
+            }).then(() => {
+                // Set the offer value back to 0%
+                document.getElementById("offer-value-" + categoryId).innerText = "0%";
+                // Change the button to "Add Offer"
+                document.getElementById("offer-btn-" + categoryId).innerHTML =
+                    '<a href="#" class="text-white" onclick="addOffer(\'' + categoryId + '\')">Add Offer</a>';
+            });
+        } else {
+            Swal.fire("Failed", data.message || "Removing offer failed", "error");
+        }
+    } catch (error) {
+        Swal.fire("Error", "An error occurred while removing the offer", "error");
+        console.error("Error removing offer", error);
+    }
+}
+
+
+
+
+  </script>
