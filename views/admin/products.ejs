@@ -14,11 +14,9 @@
 
 <!-- Old-style search bar -->
 <header class="card-header text-center mb-20">
+  
   <form action="" method="get" class="d-inline">
-    <div
-      class="input-group input-group-sm border border-1 border-grey rounded-pill"
-      style="width: 500px; margin-left: 230px;"
-    >
+    <div class="input-group input-group-sm border border-1 border-grey rounded-pill" style="width: 500px; margin-left: 230px;">
       <input
         type="text"
         class="form-control border-0 rounded-pill"
@@ -28,6 +26,7 @@
       <button class="btn border-0" type="submit">Search</button>
     </div>
   </form>
+  
 </header>
 
 <!-- Table of Products -->
@@ -55,7 +54,6 @@
             <tr>
               <td><%= product.productName %></td>
               <td>
-                <!-- If you have a brand property, use it, otherwise you can hardcode or leave blank -->
                 <%= product.brand ? product.brand : "Brand A" %>
               </td>
               <td><%= product.description %></td>
@@ -67,8 +65,11 @@
               </td>
               <td><%= product.quantity %></td>
               <td>
-                <button class="btn btn-danger btn-sm me-1" style="width: 80px;">Block</button>
-                <button class="btn btn-success btn-sm" style="width: 80px;">Unblock</button>
+                <% if(product.isBlocked){ %>
+                  <button class="btn btn-success btn-sm unblock-button" data-id="<%= product._id %>" style="width: 80px;">Unblock</button>
+                <% } else { %>
+                  <button class="btn btn-danger btn-sm block-button" data-id="<%= product._id %>" style="width: 80px;">Block</button>
+                <% } %>
               </td>
               <td>
                 <button class="btn btn-info btn-sm" style="width: 80px;">Edit</button>
@@ -94,6 +95,95 @@
   </nav>
 </div>
 
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // Helper function to update the button state after a successful operation
+    function updateButtonState(button, isBlocked) {
+      if (isBlocked) {
+        // Change the button to "Unblock" if product is now blocked
+        button.innerText = "Unblock";
+        button.classList.remove("btn-danger", "block-button");
+        button.classList.add("btn-success", "unblock-button");
+        // Remove previous listeners and add new one for unblocking
+        button.replaceWith(button.cloneNode(true));
+        button = document.querySelector(`[data-id="${button.dataset.id}"]`);
+        button.addEventListener("click", () => {
+          sendRequest("/admin/unblockProduct", button.dataset.id, button);
+        });
+      } else {
+        // Change the button to "Block" if product is now unblocked
+        button.innerText = "Block";
+        button.classList.remove("btn-success", "unblock-button");
+        button.classList.add("btn-danger", "block-button");
+        // Remove previous listeners and add new one for blocking
+        button.replaceWith(button.cloneNode(true));
+        button = document.querySelector(`[data-id="${button.dataset.id}"]`);
+        button.addEventListener("click", () => {
+          sendRequest("/admin/blockProduct", button.dataset.id, button);
+        });
+      }
+    }
+    
+    // Function to send a fetch request and update the UI on success
+    function sendRequest(url, productId, button) {
+      fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id: productId })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Set a message based on the new status
+          let message = data.product.isBlocked
+            ? "Product blocked successfully!"
+            : "Product unblocked successfully!";
+          // Show a SweetAlert popup with the success message
+          Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: message,
+            timer: 1500,
+            showConfirmButton: false
+          });
+          updateButtonState(button, data.product.isBlocked);
+        } else {
+          // Show an error SweetAlert if the operation failed
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: data.message || "Operation failed"
+          });
+        }
+      })
+      .catch(error => {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.message
+        });
+        console.error("Error:", error);
+      });
+    }
+    
+    // Attach click event listeners for the initial buttons
+    document.querySelectorAll(".block-button").forEach(button => {
+      button.addEventListener("click", () => {
+        sendRequest("/admin/blockProduct", button.dataset.id, button);
+      });
+    });
+    
+    document.querySelectorAll(".unblock-button").forEach(button => {
+      button.addEventListener("click", () => {
+        sendRequest("/admin/unblockProduct", button.dataset.id, button);
+      });
+    });
+  });
+  </script>
+  
+  
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10/dist/sweetalert2.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <%- include("../../views/partials/admin/footer") %>

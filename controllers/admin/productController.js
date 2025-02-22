@@ -7,16 +7,37 @@ const sharp =require('sharp');
 const { getRandomValues } = require('crypto');
 
 
-const getProductInfo = async(req,res)=>{
+
+
+const getProductInfo = async (req, res) => {
     try {
-        const products = await Product.find({}).populate('category');
-        
-        res.render('products', { products });
-      } catch (error) {
-        console.error("Error fetching products:", error);
-        res.redirect('/pageError');
+      // Build an empty query object
+      let query = {};
+  
+      // If a search term is provided, update the query to filter products
+      if (req.query.search) {
+        // Example: Search by productName using a case-insensitive regex
+        query.productName = { $regex: req.query.search, $options: 'i' };
+        // If you also want to search in the brand field, you could use $or:
+        // query = {
+        //   $or: [
+        //     { productName: { $regex: req.query.search, $options: 'i' } },
+        //     { brand: { $regex: req.query.search, $options: 'i' } }
+        //   ]
+        // };
       }
-}
+  
+      // Fetch products matching the query, with category populated
+      const products = await Product.find(query).populate('category');
+  
+      // Render the products page with the fetched products
+      res.render('products', { products });
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.redirect('/pageError');
+    }
+  };
+  
 
 const getProductAddPage = async(req,res)=>{
     try {
@@ -97,8 +118,46 @@ images.push(resizedFileName);
         }
 }
 
+const blockProduct = async (req, res) => {
+    try {
+      const { id } = req.body;
+      const product = await Product.findByIdAndUpdate(
+        id, 
+        { isBlocked: true }, 
+        { new: true }
+      );
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Product not found' });
+      }
+      res.json({ success: true, product });
+    } catch (error) {
+      console.error("Error blocking product:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  };
+  
+  const unblockProduct = async (req, res) => {
+    try {
+      const { id } = req.body;
+      const product = await Product.findByIdAndUpdate(
+        id, 
+        { isBlocked: false }, 
+        { new: true }
+      );
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Product not found' });
+      }
+      res.json({ success: true, product });
+    } catch (error) {
+      console.error("Error unblocking product:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  };
+
 module.exports ={
     getProductAddPage,
     getProductInfo,
-    addProducts
+    addProducts,
+    blockProduct,
+    unblockProduct
 }

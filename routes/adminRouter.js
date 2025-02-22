@@ -53,6 +53,8 @@ router.post('/editCategory/:id', auth.admincheckSession, categoryController.edit
 router.get('/addProducts',auth.admincheckSession,productController.getProductAddPage);
 router.get('/products',auth.admincheckSession,productController.getProductInfo);
 router.post('/addProducts',auth.admincheckSession,uploads.array('images',4),productController.addProducts)
+router.post('/blockProduct',auth.admincheckSession, productController.blockProduct);
+router.post('/unblockProduct',auth.admincheckSession, productController.unblockProduct);
 module.exports =router;
 
 

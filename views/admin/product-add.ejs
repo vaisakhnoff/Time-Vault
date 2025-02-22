@@ -265,27 +265,30 @@ function viewImage(event, index) {
         saveButton.replaceWith(saveButton.cloneNode(true));
         saveButton = document.querySelector('#saveButton' + index);
 
-        saveButton.addEventListener('click', async function () {
-            let croppedCanvas = cropper.getCroppedCanvas();
-            let croppedImage = document.getElementById('croppedImg' + index);
-            croppedImage.src = croppedCanvas.toDataURL('image/jpeg', 1.0);
+        saveButton.addEventListener('click', function () {
+  const croppedCanvas = cropper.getCroppedCanvas();
+  const croppedImage = document.getElementById('croppedImg' + index);
+  croppedImage.src = croppedCanvas.toDataURL('image/jpeg', 1.0);
 
-            // Generate a unique filename
-            let timeStamp = new Date().getTime();
-            let fileName = `cropped-img-${timeStamp}-${index}.png`;
+  // Generate a unique filename and update the file input as before
+  const timeStamp = new Date().getTime();
+  const fileName = `cropped-img-${timeStamp}-${index}.png`;
+  croppedCanvas.toBlob(blob => {
+    const imgFile = new File([blob], fileName, { type: blob.type });
+    const fileList = new DataTransfer();
+    fileList.items.add(imgFile);
+    input.files = fileList.files;
+  }, 'image/jpeg', 1.0);
 
-            // Convert the canvas to a Blob and update the file input
-            croppedCanvas.toBlob(blob => {
-                let imgFile = new File([blob], fileName, { type: blob.type });
-                const fileList = new DataTransfer();
-                fileList.items.add(imgFile);
-                input.files = fileList.files;
-            }, 'image/jpeg', 1.0);
+  // Hide the cropper container and destroy the cropper instance
+  cropperContainer.style.display = 'none';
+  cropper.destroy();
 
-            // Hide the cropper container and destroy the cropper instance
-            cropperContainer.style.display = 'none';
-            cropper.destroy();
-        });
+  // Hide or remove the original image preview so only the cropped image is shown
+  const originalImage = document.getElementById('imgView' + index);
+  originalImage.style.display = 'none'; // or use originalImage.remove();
+});
+
     };
 
     reader.readAsDataURL(input.files[0]);
