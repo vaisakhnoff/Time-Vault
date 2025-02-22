@@ -61,7 +61,7 @@ const logout = async(req,res)=>{
 
     } catch (error) {
         console.log("unexpected error during logging",error);
-        res.redirect('/pageError')
+        res.redirect('/admin/dashboard')
         
     }
 }

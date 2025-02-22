@@ -1,8 +1,27 @@
+const multer = require('multer');
+const path = require('path');
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'public/uploads/product-images'); // Ensure this directory exists
+  },
+  filename: function (req, file, cb) {
+    const filename = Date.now() + '-' + file.originalname;
+    cb(null, filename);
+  }
+});
+
+const uploads = multer({ storage: storage });
+
+
+
+
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/admin/adminController');
 const customerController = require('../controllers/admin/customerController')
 const categoryController = require('../controllers/admin/categoryController')
+const productController = require('../controllers/admin/productController')
 const auth=require('../middleware/admin/auth')
 
 
@@ -26,7 +45,14 @@ router.get('/category',auth.admincheckSession,categoryController.categoryInfo)
 router.post('/addCategory',auth.admincheckSession,categoryController.addCategory)
 router.post('/addCategoryOffer',auth.admincheckSession,categoryController.addCategoryOffer);
 router.post('/removeCategoryoffer',auth.admincheckSession,categoryController.removeCategoryoffer);
+router.get('/listCategory',auth.admincheckSession,categoryController.getListCategory)
+router.get('/unlistCategory',auth.admincheckSession,categoryController.getUnlistCategory)
+router.get('/editCategory',auth.admincheckSession,categoryController.getEditCategory);
+router.post('/editCategory/:id', auth.admincheckSession, categoryController.editCategory);
 
+router.get('/addProducts',auth.admincheckSession,productController.getProductAddPage);
+router.get('/products',auth.admincheckSession,productController.getProductInfo);
+router.post('/addProducts',auth.admincheckSession,uploads.array('images',4),productController.addProducts)
 module.exports =router;
 
 

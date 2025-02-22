@@ -1,0 +1,82 @@
+<%- include("../../views/partials/admin/header") %>
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-6 mt-60">
+      <form id="edit-category-form">
+        <!-- Hidden field for the category ID -->
+        <input type="hidden" name="id" value="<%= category._id %>">
+        <div class="d-grid text-end mt-30 col-md-5">
+          <button class="btn btn-primary" type="submit">Update category</button>
+        </div>
+        <div class="mb-4 mt-30">
+          <label for="product_name" class="form-label">Name</label>
+          <input type="text" name="categoryName" value="<%= category.name %>" class="form-control border" required />
+        </div>
+        <div class="mb-4">
+          <label class="form-label">Description</label>
+          <textarea name="description" class="form-control border" required><%= category.description %></textarea>
+        </div>
+        <div class="text-end mt-20">
+            <button class="btn btn-secondary" onclick="window.location.href='/admin/category'">Back</button>
+          </div>
+          
+      </form>
+    </div>
+  </div>
+</div>
+
+<%- include("../../views/partials/admin/footer") %>
+
+
+  <script>
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById('edit-category-form');
+  if (!form) {
+    console.error("Form not found!");
+    return;
+  }
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    console.log("Form submitted"); // Debug log
+
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+    const categoryId = data.id;
+    const url = `/admin/editCategory/${categoryId}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      console.log("Fetch result:", result); // Debug log
+      if (response.ok) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Category Updated',
+          text: result.message || 'Category updated successfully'
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.error || 'Error updating category'
+        });
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.message || 'An error occurred while updating the category'
+      });
+    }
+  });
+});
+
+  
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10/dist/sweetalert2.min.js"></script>

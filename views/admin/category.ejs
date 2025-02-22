@@ -121,8 +121,6 @@
                 </thead>
                 <tbody>
                     <%cat.reverse().forEach((category,index)=>{%>
-
-                    
                   <tr>
                     <td></td>
                     <td class="text-start"><%=category.name%></td>
@@ -135,7 +133,7 @@
                         <% } %>
                       </td>
                       <td class="text-start">
-                        <% if(category.categoryOffer === 0){ %>
+                        <% if(category.categoryOffer === 0 || !category.categoryOffer){ %>
                           <button id="offer-btn-<%= category._id %>" class="btn btn-info" style="width: 100px">
                             <a href="#" class="text-white" onclick="addOffer('<%= category._id %>')">Add Offer</a>
                           </button>
@@ -146,26 +144,24 @@
                         <% } %>
                       </td>
                       
-                    <td class="text-start">
-                      <span class="badge rounded-pill alert-success" style="width: 60px">Listed</span>
-                      <span class="badge rounded-pill alert-danger" style="width: 60px">Unlisted</span>
-                    </td>
-                    <td class="text-start">
-                      <button class="btn btn-danger" style="width: 70px">
-                        <a href="#" class="text-white">Unlist</a>
-                      </button>
-                      <button class="btn btn-success" style="width: 70px">
-                        <a href="" class="text-white">List</a>
-                      </button>
-                    </td>
-                    <td class="text-start">
-                      <a href="" class="btn btn-info text-white">Edit</a>
-                    </td>
+                      <td class="text-start" id="listing-status-<%= category._id %>">
+                        <% if (category.isListed) { %>
+                          <span class="badge rounded-pill alert-success" style="width: 60px">Listed</span>
+                        <% } else { %>
+                          <span class="badge rounded-pill alert-danger" style="width: 60px">Unlisted</span>
+                        <% } %>
+                      </td>
+                      <td class="text-start">
+                        <button id="listing-btn-<%= category._id %>" class="btn <%= category.isListed ? 'btn-danger' : 'btn-success' %>" style="width: 70px" onclick="toggleListing('<%= category._id %>', '<%= category.isListed %>')">
+                          <span class="text-white"><%= category.isListed ? 'Unlist' : 'List' %></span>
+                        </button>
+                      </td>
+                      <td class="text-start">
+                        <a href="/admin/editCategory?id=<%=category._id%>"   class="btn btn-info text-white">Edit</a>
+                      </td>
                   </tr>
-                  <%})%>
+                    <%})%>
                 </tbody>
-              </table>
-            </div>
           </div>
         </div>
       </div>
@@ -351,6 +347,59 @@ async function removeOffer(categoryId) {
         Swal.fire("Error", "An error occurred while removing the offer", "error");
         console.error("Error removing offer", error);
     }
+}
+
+async function toggleListing(categoryId, isListed) {
+  // Corrected: if category is listed, call the endpoint to unlist it.
+  const endpoint = isListed ? "/admin/listCategory" : "/admin/unlistCategory";
+  
+  try {
+    const response = await fetch(`${endpoint}?id=${categoryId}`, { 
+      method: "GET",
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const data = await response.json();
+    if (response.ok && data.status === true) {
+      // Update UI with the new status (flip the current status)
+      const newStatus = !isListed;
+      updateListingUI(categoryId, newStatus);
+      
+      Swal.fire({
+        icon: "success",
+        title: "Success",
+        text: `Category ${newStatus ? 'listed' : 'unlisted'} successfully`
+      });
+    } else {
+      throw new Error(data.message || "Failed to update listing status");
+    }
+  } catch (error) {
+    console.error("Error toggling listing:", error);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: error.message || "An error occurred while updating listing status"
+    });
+  }
+}
+
+
+// Add this helper function to update UI
+function updateListingUI(categoryId, isListed) {
+  const statusElement = document.getElementById(`listing-status-${categoryId}`);
+  const buttonElement = document.getElementById(`listing-btn-${categoryId}`);
+  
+  statusElement.innerHTML = isListed 
+    ? '<span class="badge rounded-pill alert-success" style="width: 60px">Listed</span>'
+    : '<span class="badge rounded-pill alert-danger" style="width: 60px">Unlisted</span>';
+    
+  buttonElement.className = isListed ? 'btn btn-danger' : 'btn btn-success';
+  buttonElement.innerHTML = `<span class="text-white">${isListed ? 'Unlist' : 'List'}</span>`;
+  
+  // Update the onclick handler with the new status
+  buttonElement.setAttribute('onclick', `toggleListing('${categoryId}', ${isListed})`);
 }
 
 
