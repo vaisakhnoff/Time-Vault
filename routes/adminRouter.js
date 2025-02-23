@@ -55,6 +55,10 @@ router.get('/products',auth.admincheckSession,productController.getProductInfo);
 router.post('/addProducts',auth.admincheckSession,uploads.array('images',4),productController.addProducts)
 router.post('/blockProduct',auth.admincheckSession, productController.blockProduct);
 router.post('/unblockProduct',auth.admincheckSession, productController.unblockProduct);
+router.get('/editProduct/:id', auth.admincheckSession, productController.getEditProduct);
+router.post('/editProduct/:id', auth.admincheckSession, uploads.array('images', 4), productController.editProduct);
+
+
 module.exports =router;
 
 

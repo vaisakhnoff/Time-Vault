@@ -265,29 +265,33 @@ function viewImage(event, index) {
         saveButton.replaceWith(saveButton.cloneNode(true));
         saveButton = document.querySelector('#saveButton' + index);
 
-        saveButton.addEventListener('click', function () {
+
+        
+        saveButton.addEventListener('click', () => {
   const croppedCanvas = cropper.getCroppedCanvas();
-  const croppedImage = document.getElementById('croppedImg' + index);
-  croppedImage.src = croppedCanvas.toDataURL('image/jpeg', 1.0);
-
-  // Generate a unique filename and update the file input as before
-  const timeStamp = new Date().getTime();
-  const fileName = `cropped-img-${timeStamp}-${index}.png`;
   croppedCanvas.toBlob(blob => {
-    const imgFile = new File([blob], fileName, { type: blob.type });
-    const fileList = new DataTransfer();
-    fileList.items.add(imgFile);
-    input.files = fileList.files;
-  }, 'image/jpeg', 1.0);
+    // Create a new file from the cropped blob
+    const fileName = `cropped-img-${Date.now()}-${index}.png`;
+    const newFile = new File([blob], fileName, { type: 'image/png' });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(newFile);
+    document.getElementById('input' + index).files = dataTransfer.files;
 
-  // Hide the cropper container and destroy the cropper instance
-  cropperContainer.style.display = 'none';
+    // Update the preview with the cropped image
+    const mainPreview = document.getElementById('imgView' + index);
+    mainPreview.src = croppedCanvas.toDataURL('image/png');
+    mainPreview.style.display = 'block';
+    
+    // Optionally hide any duplicate/original preview element if needed
+    // e.g., if you have a separate element, remove or hide it here.
+  });
+
+  // Hide the cropping container and destroy the cropper instance
+  const cropContainer = document.getElementById('cropContainer' + index);
+  cropContainer.classList.add('hidden');
   cropper.destroy();
-
-  // Hide or remove the original image preview so only the cropped image is shown
-  const originalImage = document.getElementById('imgView' + index);
-  originalImage.style.display = 'none'; // or use originalImage.remove();
 });
+
 
     };
 
@@ -338,76 +342,84 @@ addedImagesContainer.appendChild(thumbnail);
 
 
 
-   function validateForm() {
-              clearErrorMessages();
-              const name = document.getElementsByName('productName')[0].value;
-              const description = document.getElementById('descriptionid').value;
-              const brand = document.getElementsByName('brand')[0].value;
-              const price = document.getElementsByName('regularPrice')[0].value;
-              const saleprice = document.getElementsByName('salePrice')[0].value;
-            //   const color = document.getElementsByName('color')[0].value;
-              const category = document.getElementsByName('category')[0].value;
-              const images = document.getElementById('input1')
-              const quantity = document.getElementsByName('quantity')[0].value;
-              let isValid = true
-              if (name.trim() === "") {
+function validateAndSubmit() {
+    if (validateForm()) {
+      document.forms[0].submit();
+    }
+  }
+
+  function validateForm() {
+    clearErrorMessages();
+    let isValid = true;
+
+    const name = document.getElementsByName('productName')[0].value.trim();
+    const description = document.getElementById('descriptionid').value.trim();
+    const brand = document.getElementsByName('brand')[0].value.trim();
+    const price = document.getElementsByName('regularPrice')[0].value.trim();
+    const salePrice = document.getElementsByName('salePrice')[0].value.trim();
+    const quantity = document.getElementsByName('quantity')[0].value.trim();
+    const images = document.getElementById('input1');
+
+    // 1. Product Name
+    if (name === "") {
       displayErrorMessage('productName-error', 'Please enter a product name.');
       isValid = false;
-   } else if (!/^[a-zA-Z\s]+$/.test(name.trim())) {
-      displayErrorMessage('productName-error', 'Product name should contain only alphabetic characters.');
-      isValid = false;
-   }
-            
-   if (description.trim() === "") {
+    }
+
+    // 2. Description
+    if (description === "") {
       displayErrorMessage('description-error', 'Please enter a product description.');
       isValid = false;
-   } else if (!/^[a-zA-Z\s]+$/.test(description.trim())) {
-      displayErrorMessage('description-error', 'Product description should contain only alphabetic characters.');
+    }
+
+    // 3. Quantity
+    // Make sure it's a valid non-negative integer
+    if (isNaN(quantity) || parseInt(quantity) < 0) {
+      displayErrorMessage('quantity-error', 'Please enter a valid non-negative quantity.');
       isValid = false;
-   }
-  
-  
-           
-  
-  
-              if ( parseInt(quantity) < 0) {
-                  displayErrorMessage('quantity-error', 'Please enter a valid non-negative quantity.');
-                  isValid = false;
-              }
-  
-  
-  
-  
-              if (!/^\d+(\.\d{1,2})?$/.test(price) || parseFloat(price) < 0) {
-                  displayErrorMessage('regularPrice-error', 'Please enter a valid non-negative price.');
-                  isValid = false;
-              }
-  
-  
-  
-  
-              if (!/^\d+(\.\d{1,2})?$/.test(saleprice) || parseFloat(saleprice) < 0) {
-                  displayErrorMessage('salePrice-error', 'Please enter a valid non-negative price.');
-                  isValid = false;
-              }
-              if (parseFloat(price) <= parseFloat(saleprice)) {
+    }
+
+    // 4. Regular Price
+    // Must be a non-negative number (up to 2 decimal places)
+    if (!/^\d+(\.\d{1,2})?$/.test(price) || parseFloat(price) < 0) {
+      displayErrorMessage('regularPrice-error', 'Please enter a valid non-negative price.');
+      isValid = false;
+    }
+
+    // 5. Sale Price
+    // Must be a non-negative number (up to 2 decimal places)
+    if (!/^\d+(\.\d{1,2})?$/.test(salePrice) || parseFloat(salePrice) < 0) {
+      displayErrorMessage('salePrice-error', 'Please enter a valid non-negative sale price.');
+      isValid = false;
+    }
+
+    // 6. Price vs. Sale Price
+    if (parseFloat(price) <= parseFloat(salePrice)) {
       displayErrorMessage('regularPrice-error', 'Regular price must be greater than sale price.');
       isValid = false;
-   }
-  
-  
-            //   if (color.trim() === "") {
-            //       displayErrorMessage('color-error', 'Please enter a color.');
-            //       isValid = false;
-            //   }
-  
-  
-              if (images.files.length === 0) {
-                  displayErrorMessage("images-error",'Please select an image.');
-                  isValid = false;
-              }
-              return isValid;
-          }
+    }
+
+    // 7. At Least One Image
+    if (images.files.length === 0) {
+      displayErrorMessage("images-error", 'Please select at least one image.');
+      isValid = false;
+    }
+
+    return isValid;
+  }
+
+  function displayErrorMessage(elementId, message) {
+    const errorElement = document.getElementById(elementId);
+    errorElement.innerText = message;
+    errorElement.style.display = "block";
+  }
+
+  function clearErrorMessages() {
+    const errorElements = document.getElementsByClassName('error-message');
+    Array.from(errorElements).forEach(element => {
+      element.innerText = '';
+    });
+  }
 
 
           function displayErrorMessage(elementId, message) {

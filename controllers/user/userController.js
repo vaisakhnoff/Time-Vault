@@ -5,28 +5,43 @@ const env = require('dotenv').config()
 const bcrypt = require('bcrypt');
 const passport = require("passport");
 
+const Category = require('../../models/categorySchema');
+const Product = require('../../models/productSchema');
 
 
 const loadHomepage = async (req, res) => {
     try {
-      const userId = req.session.user;
-      if (userId) {
-        const userData = await User.findOne({ _id: userId });
+        const userId = req.session.user;
+        const categories = await Category.find({ isListed: true });
+        let productData = await Product.find({
+            isBlocked: false,
+            category: { $in: categories.map(category => category._id) },
+            quantity: { $gt: 0 }
+        }).populate('category').lean(); // Add .lean() for better performance
 
-        if (userData && userData.isBlocked) {
+        // Map the products to include the correct image path
+        productData = productData.map(product => ({
+            ...product,
+            productImage: product.productImage.map(img => `/uploads/product-images/${img}`)
+        }));
 
-          return res.redirect('/login');
-          
+        productData.sort((a, b) => new Date(b.createdOn) - new Date(a.createdOn));
+        productData = productData.slice(0, 4);
+
+        if (userId) {
+            const userData = await User.findOne({ _id: userId });
+            if (userData && userData.isBlocked) {
+                return res.redirect('/login');
+            }
+            res.render('home', { user: userData, products: productData });
+        } else {
+            res.render('home', { products: productData });
         }
-        res.render('home', { user: userData });
-      } else {
-        res.render('home');
-      }
     } catch (error) {
-      console.error("Error loading homepage:", error);
-      res.status(500).send("Internal Server Error");
+        console.error("Error loading homepage:", error);
+        res.status(500).send("Internal Server Error");
     }
-  };
+};
   
 
 const pageNotFound = async(req,res)=>{  
