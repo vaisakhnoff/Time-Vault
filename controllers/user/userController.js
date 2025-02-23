@@ -9,6 +9,7 @@ const Category = require('../../models/categorySchema');
 const Product = require('../../models/productSchema');
 
 
+
 const loadHomepage = async (req, res) => {
     try {
         const userId = req.session.user;

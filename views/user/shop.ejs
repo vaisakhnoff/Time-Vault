@@ -105,19 +105,19 @@
 			color: #777;
 			margin-left: 10px;
 		}
-
-		.product-link {
-			text-decoration: none;
-			color: inherit;
-			display: block;
-		}
-
-		.product-link:hover {
-			text-decoration: none;
 			color: inherit;
 		}
 
 		.single-product {
+			cursor: pointer;
+			transition: transform 0.3s ease;
+		}
+
+		.single-product:hover {
+			transform: translateY(-5px);
+		}
+
+		.p_icon {
 			z-index: 2;
 		}
 
@@ -376,7 +376,7 @@
         <% products.forEach(function(product) { %>
             <div class="col-lg-4 col-md-6">
                 <div class="single-product">
-                    <a href="/product-details?id=<%= product._id %>" class="product-link">
+                    <a href="/productDetails?id=<%= product._id %>" class="product-link">
                         <div class="product-img">
                             <img class="img-fluid w-100" 
                                  src="<%= product.productImage[0] %>" 

@@ -120,51 +120,203 @@
 	<!-- End Banner Area -->
 
 	<!--================Single Product Area =================-->
-	<div class="product_image_area">
-		<div class="container">
-			<div class="row s_product_inner">
-				<div class="col-lg-6">
-					<div class="s_Product_carousel">
-						<div class="single-prd-item">
-							<img class="img-fluid" src="img/category/s-p1.jpg" alt="">
-						</div>
-						<div class="single-prd-item">
-							<img class="img-fluid" src="img/category/s-p1.jpg" alt="">
-						</div>
-						<div class="single-prd-item">
-							<img class="img-fluid" src="img/category/s-p1.jpg" alt="">
-						</div>
-					</div>
-				</div>
-				<div class="col-lg-5 offset-lg-1">
-					<div class="s_product_text">
-						<h3>Faded SkyBlu Denim Jeans</h3>
-						<h2>$149.99</h2>
-						<ul class="list">
-							<li><a class="active" href="#"><span>Category</span> : Household</a></li>
-							<li><a href="#"><span>Availibility</span> : In Stock</a></li>
-						</ul>
-						<p>Mill Oil is an innovative oil filled radiator with the most modern technology. If you are looking for
-							something that can make your interior look awesome, and at the same time give you the pleasant warm feeling
-							during the winter.</p>
-						<div class="product_count">
-							<label for="qty">Quantity:</label>
-							<input type="text" name="qty" id="sst" maxlength="12" value="1" title="Quantity:" class="input-text qty">
-							<button onclick="var result = document.getElementById('sst'); var sst = result.value; if( !isNaN( sst )) result.value++;return false;"
-							 class="increase items-count" type="button"><i class="lnr lnr-chevron-up"></i></button>
-							<button onclick="var result = document.getElementById('sst'); var sst = result.value; if( !isNaN( sst ) &amp;&amp; sst > 0 ) result.value--;return false;"
-							 class="reduced items-count" type="button"><i class="lnr lnr-chevron-down"></i></button>
-						</div>
-						<div class="card_area d-flex align-items-center">
-							<a class="primary-btn" href="#">Add to Cart</a>
-							<a class="icon_btn" href="#"><i class="lnr lnr lnr-diamond"></i></a>
-							<a class="icon_btn" href="#"><i class="lnr lnr lnr-heart"></i></a>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+	<%- include("../../views/partials/user/header") %>
+
+<section class="product_details_area section_gap">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-6">
+                <div id="product-carousel" class="carousel slide" data-ride="carousel">
+                    <!-- Indicators -->
+                    <ol class="carousel-indicators">
+                        <% product.productImage.forEach((image, index) => { %>
+                            <li data-target="#product-carousel" data-slide-to="<%= index %>" 
+                                class="<%= index === 0 ? 'active' : '' %>"></li>
+                        <% }); %>
+                    </ol>
+
+                    <!-- Wrapper for slides -->
+                    <div class="carousel-inner">
+                        <% product.productImage.forEach((image, index) => { %>
+                            <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                                <img src="<%= image %>" 
+                                     class="d-block w-100" 
+                                     alt="Product Image <%= index + 1 %>"
+                                     style="height: 500px; object-fit: contain;">
+                            </div>
+                        <% }); %>
+                    </div>
+
+                    <!-- Controls -->
+                    <a class="carousel-control-prev" href="#product-carousel" role="button" data-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="sr-only">Previous</span>
+                    </a>
+                    <a class="carousel-control-next" href="#product-carousel" role="button" data-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="sr-only">Next</span>
+                    </a>
+                </div>
+
+                <!-- Thumbnail Navigation -->
+                <div class="row mt-3">
+                    <% product.productImage.forEach((image, index) => { %>
+                        <div class="col-3">
+                            <img src="<%= image %>" 
+                                 class="img-thumbnail" 
+                                 data-target="#product-carousel" 
+                                 data-slide-to="<%= index %>"
+                                 style="cursor: pointer; height: 80px; object-fit: cover;">
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+            <div class="col-lg-5 offset-lg-1">
+                <div class="s_product_text">
+                    <h3><%= product.productName %></h3>
+                    <h2>₹<%= product.salePrice %></h2>
+                    <% if (product.salePrice < product.regularPrice) { %>
+                        <del>₹<%= product.regularPrice %></del>
+                    <% } %>
+                    
+                    <ul class="list">
+                        <li>
+                            <span>Category</span> : <%= product.category.name %>
+                        </li>
+                        <li>
+                            <span>Availability</span> : 
+                            <% if(product.quantity > 0) { %>
+                                In Stock (<%= product.quantity %> items)
+                            <% } else { %>
+                                Out of Stock
+                            <% } %>
+                        </li>
+                    </ul>
+                    <p><%= product.description %></p>
+
+                    <div class="product_count">
+                        <label for="qty">Quantity:</label>
+                        <input type="text" name="qty" id="sst" maxlength="12" value="1" title="Quantity:" class="input-text qty">
+                        <button onclick="var result = document.getElementById('sst'); var sst = result.value; if( !isNaN( sst ) && sst < <%= product.quantity %>) result.value++;return false;"
+                            class="increase items-count" type="button">
+                            <i class="lnr lnr-chevron-up"></i>
+                        </button>
+                        <button onclick="var result = document.getElementById('sst'); var sst = result.value; if( !isNaN( sst ) && sst > 1 ) result.value--;return false;"
+                            class="reduced items-count" type="button">
+                            <i class="lnr lnr-chevron-down"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="card_area d-flex align-items-center">
+                        <button class="primary-btn" onclick="addToCart('<%= product._id %>')">Add to Cart</button>
+                        <button class="icon_btn" onclick="addToWishlist('<%= product._id %>')">
+                            <i class="lnr lnr-heart"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Related products section -->
+<section class="related-product-area section_gap">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-6 text-center">
+                <div class="section-title">
+                    <h1>Related Products</h1>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <% relatedProducts.forEach(function(relProduct) { %>
+                <div class="col-lg-3 col-md-6">
+                    <div class="single-product">
+                        <a href="/product-details?id=<%= relProduct._id %>">
+                            <img class="img-fluid" src="<%= relProduct.productImage[0] %>" alt="<%= relProduct.productName %>">
+                        </a>
+                        <div class="product-details">
+                            <h6><%= relProduct.productName %></h6>
+                            <div class="price">
+                                <h6>₹<%= relProduct.salePrice %></h6>
+                                <% if (relProduct.salePrice < relProduct.regularPrice) { %>
+                                    <h6 class="l-through">₹<%= relProduct.regularPrice %></h6>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+</section>
+
+<script>
+function addToCart(productId) {
+    const quantity = document.getElementById('sst').value;
+    fetch('/add-to-cart', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            productId,
+            quantity
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'Product added to cart!'
+            });
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message || 'Failed to add product to cart'
+        });
+    });
+}
+
+function addToWishlist(productId) {
+    fetch('/add-to-wishlist', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'Product added to wishlist!'
+            });
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message || 'Failed to add product to wishlist'
+        });
+    });
+}
+</script>
+
+<%- include("../../views/partials/user/footer") %>
 	<!--================End Single Product Area =================-->
 
 	<!--================Product Description Area =================-->
@@ -723,6 +875,69 @@ Copyright &copy;<script>document.write(new Date().getFullYear());</script> All r
 	<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCjCGmQ0Uq4exrzdcL6rvxywDDOvfAu6eE"></script>
 	<script src="js/gmaps.min.js"></script>
 	<script src="js/main.js"></script>
+
+    <style>
+        .carousel-item img {
+            background: #f8f9fa;
+        }
+
+        .carousel-control-prev,
+        .carousel-control-next {
+            background: rgba(0,0,0,0.2);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .carousel-indicators {
+            bottom: -50px;
+        }
+
+        .carousel-indicators li {
+            background-color: #777;
+        }
+
+        .img-thumbnail {
+            transition: opacity 0.2s;
+        }
+
+        .img-thumbnail:hover {
+            opacity: 0.8;
+        }
+
+        #product-carousel {
+            margin-bottom: 50px;
+        }
+
+        .carousel-control-prev-icon,
+        .carousel-control-next-icon {
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+
+    <script>
+    $(document).ready(function() {
+        // Initialize carousel
+        $('#product-carousel').carousel({
+            interval: 5000 // Change slide every 5 seconds
+        });
+
+        // Enable thumbnail clicks
+        $('.img-thumbnail').click(function() {
+            var slideIndex = $(this).data('slide-to');
+            $('#product-carousel').carousel(slideIndex);
+        });
+
+        // Update thumbnail opacity on slide
+        $('#product-carousel').on('slide.bs.carousel', function (e) {
+            $('.img-thumbnail').css('opacity', '0.5');
+            $('.img-thumbnail').eq(e.to).css('opacity', '1');
+        });
+    });
+    </script>
 
 </body>
 
