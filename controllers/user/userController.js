@@ -263,6 +263,57 @@ res.redirect('/')
     }
   }
 
+  const loadShopPage = async(req,res)=>{
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = 9;
+        const skip = (page - 1) * limit;
+
+        // Get all categories
+        const categories = await Category.find({ isListed: true });
+        
+        let query = { isBlocked: false };
+        
+        if (req.query.category) {
+            query.category = req.query.category;
+        }
+        
+        if (req.query.search) {
+            query.productName = { $regex: req.query.search, $options: 'i' };
+        }
+
+        // Get products and format image paths
+        let products = await Product.find(query)
+            .populate('category')
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Format image paths
+        products = products.map(product => ({
+            ...product,
+            productImage: product.productImage.map(img => `/uploads/product-images/${img}`)
+        }));
+
+        const totalProducts = await Product.countDocuments(query);
+        const totalPages = Math.ceil(totalProducts / limit);
+
+        res.render('shop', {
+            products,
+            currentPage: page,
+            totalPages,
+            categories,
+            selectedCategory: req.query.category || '',
+            searchQuery: req.query.search || ''
+        });
+
+    } catch (error) {
+        console.error("Error loading shop page:", error);
+        res.redirect('/pageNotFound');
+    }
+}
+
 module.exports ={
     loadHomepage,
     pageNotFound,
@@ -273,5 +324,6 @@ module.exports ={
     resendOtp,
     login,
     logout,
-    googleAuthCallback
+    googleAuthCallback,
+    loadShopPage
 }

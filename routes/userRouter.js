@@ -3,6 +3,7 @@ const router = express.Router();
 const userController = require('../controllers/user/userController');
 const passport = require('passport');
 const auth=require('../middleware/user/auth')
+const productController = require('../controllers/user/productController')
 
 router.get('/',userController.loadHomepage)
 router.get('/pageNotFound',userController.pageNotFound)
@@ -21,17 +22,8 @@ router.get(
   );
 
 
-
-// router.get(
-//     '/auth/google/callback',
-//     passport.authenticate('google', { failureRedirect: '/signup' }),
-//     (req, res) => {
-//       // Set req.session.user using the authenticated user from Passport
-//       req.session.user = req.user._id;
-//       res.redirect('/');
-//     }
-//   );
-  
+router.get('/productDetails',auth.checkSession,productController.productDetails);
+router.get('/shopPage',auth.checkSession,userController.loadShopPage);
 
 
 
