@@ -265,13 +265,18 @@ res.redirect('/')
   }
 
   const loadShopPage = async(req,res)=>{
+
     try {
+        console.log("1");
+        
         const page = parseInt(req.query.page) || 1;
         const limit = 9;
         const skip = (page - 1) * limit;
 
         // Get all categories
         const categories = await Category.find({ isListed: true });
+        console.log("2");
+        
         
         let query = { isBlocked: false };
         
@@ -282,6 +287,7 @@ res.redirect('/')
         if (req.query.search) {
             query.productName = { $regex: req.query.search, $options: 'i' };
         }
+console.log("3");
 
         // Get products and format image paths
         let products = await Product.find(query)
@@ -299,6 +305,7 @@ res.redirect('/')
 
         const totalProducts = await Product.countDocuments(query);
         const totalPages = Math.ceil(totalProducts / limit);
+console.log("hi");
 
         res.render('shop', {
             products,
