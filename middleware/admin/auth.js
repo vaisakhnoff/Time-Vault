@@ -20,14 +20,21 @@ const admincheckSession = (req,res,next)=>{
 }
 
 
-const adminIsLogin = (req, res, next) => {
-    if (req.session.admin) {
-      // If admin is logged in, redirect them to the admin dashboard/home
-      res.redirect('/admin');
-    } else {
-      next();
+
+
+
+const adminIsLogin = async (req, res, next) => {
+    try {
+        if (req.session.admin) {
+            res.redirect('/admin'); 
+        } else {
+            next(); 
+        }
+    } catch (error) {
+        console.log(error.message);
+        res.redirect('/admin/pageError');
     }
-  };
+}
   
  
 

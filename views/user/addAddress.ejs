@@ -1,0 +1,93 @@
+<%- include("../../views/partials/user/header") %>
+
+<style>
+  .address-form-container {
+    margin-top: 150px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #fff;
+  }
+  
+  .address-form-container h3 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    font-weight: bold;
+  }
+  
+  .form-control {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .btn-primary {
+    background-color: #007bff;
+    border: none;
+    padding: 10px 20px;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+</style>
+
+<div class="container address-form-container">
+  <h3>Add New Address</h3>
+  <form method="post" action="/addAddress">
+    <div class="form-group">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" class="form-control" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="addressType">Address Type</label>
+      <input type="text" id="addressType" name="address[addressType]" class="form-control" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="city">City</label>
+      <input type="text" id="city" name="city" class="form-control" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="landMark">Landmark</label>
+      <input type="text" id="landMark" name="landMark" class="form-control" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="state">State</label>
+      <input type="text" id="state" name="state" class="form-control" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="pincode">Pincode</label>
+      <input type="number" id="pincode" name="pincode" class="form-control" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="phone_no">Phone Number</label>
+      <input type="number" id="phone_no" name="phone_no" class="form-control" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="altPhone_no">Alternative Phone Number</label>
+      <input type="number" id="altPhone_no" name="altPhone_no" class="form-control" required>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">Add Address</button>
+  </form>
+</div>
+
+<%- include("../../views/partials/user/footer") %>

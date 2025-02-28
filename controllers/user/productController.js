@@ -2,6 +2,7 @@ const Product = require('../../models/productSchema');
 const Category = require('../../models/categorySchema');
 const User = require("../../models/userschema");
 
+
 const productDetails = async(req,res)=>{
     try {
         const userId = req.session.user;
@@ -18,9 +19,8 @@ const productDetails = async(req,res)=>{
             .populate('category')
             .lean();
 
-        // Debug logs
-        console.log("Product ID:", productId);
-        console.log("Found product:", product);
+        console.log(product);
+        
 
         if (!product) {
             console.log("Product not found");
@@ -45,6 +45,7 @@ const productDetails = async(req,res)=>{
         });
 
         // Get user data if logged in
+      
         const userData = userId ? await User.findById(userId).lean() : null;
 
         res.render('product-details', {
@@ -60,5 +61,6 @@ const productDetails = async(req,res)=>{
 }
 
 module.exports = {
-    productDetails
+    productDetails,
+   
 }

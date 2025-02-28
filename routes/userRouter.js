@@ -4,28 +4,41 @@ const userController = require('../controllers/user/userController');
 const passport = require('passport');
 const auth=require('../middleware/user/auth')
 const productController = require('../controllers/user/productController')
+const profileController = require('../controllers/user/profileController')
 
 router.get('/',userController.loadHomepage)
 router.get('/pageNotFound',userController.pageNotFound)
-router.get('/login',auth.isLogin,userController.loadLoginPage)
+router.get('/login',userController.loadLoginPage)
 router.post('/login',userController.login)
-router.get('/signup',auth.isLogin,userController.loadSignupPage)
+router.get('/signup',userController.loadSignupPage)
 router.post('/signup',userController.signUp)
 router.get("/logout",userController.logout)
 router.post('/verify-otp',userController.verifyOtp);
 router.post('/resend-otp',userController.resendOtp)
 router.get('/auth/google',passport.authenticate('google',{scope:['profile','email']}));
-router.get(
-    '/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/signup' }),
-    userController.googleAuthCallback
-  );
+router.get('/auth/google/callback', userController.handleGoogleAuth);
+router.get('/forgotPassword',userController.forgotPassword)
+router.post('/sendForgotOtp', userController.sendForgotOtp);
+router.get('/resetPassword', userController.loadResetPassword)
+router.post('/resetPassword', userController.resetPassword)
 
 
 router.get('/productDetails',auth.checkSession,productController.productDetails);
 router.get('/shopPage',auth.checkSession,userController.loadShopPage);
 
+router.get('/userProfile',auth.checkSession,profileController.userProfile)
+router.get('/changeEmail',auth.checkSession,profileController.changeEmail);
+router.post('/changeEmail',auth.checkSession,profileController.changeEmailValid)
+router.post('/verifyEmailOtp',auth.checkSession,profileController.verifyEmail)
+router.post('/updateEmail',auth.checkSession,profileController.updateEmail);
+router.get('/changePassword',auth.checkSession,profileController.changePassword);
+router.post('/changePassword',auth.checkSession,profileController.changePasswordValid)
+router.post('/verifyChangePassword',auth.checkSession,profileController.verifyChangePassword)
+router.get('/editProfile',auth.checkSession,profileController.editProfile);
+router.post('/updateProfile',auth.checkSession,profileController.updateProfile);
 
+router.get('/userAddress',auth.checkSession,profileController.userAddress);
+router.get('/addAddress',auth.checkSession,profileController.addAddressPage);
+// router.post('/addAddress',auth.checkSession,profileController.addAddress);
 
-
-module.exports = router; 
+module.exports =router;

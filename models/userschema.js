@@ -87,7 +87,12 @@ const userschema =  new Schema({
       searchOn:{
         type:Date,
         default:Date.now
-      }
+      },
+      profileImage: {
+        type: String,
+        default: '/uploads/profile/default-profile.png' // Set a default image path
+    }
+
 
 
 })

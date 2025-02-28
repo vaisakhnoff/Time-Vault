@@ -11,14 +11,15 @@ const { getRandomValues } = require('crypto');
 
 const getProductInfo = async (req, res) => {
     try {
-      // Build an empty query object
+     
       let query = {};
   
-      // If a search term is provided, update the query to filter products
+      
       if (req.query.search) {
-        // Example: Search by productName using a case-insensitive regex
+       
         query.productName = { $regex: req.query.search, $options: 'i' };
-        // If you also want to search in the brand field, you could use $or:
+    
+
         // query = {
         //   $or: [
         //     { productName: { $regex: req.query.search, $options: 'i' } },
@@ -27,10 +28,8 @@ const getProductInfo = async (req, res) => {
         // };
       }
   
-      // Fetch products matching the query, with category populated
       const products = await Product.find(query).populate('category');
   
-      // Render the products page with the fetched products
       res.render('products', { products });
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -42,14 +41,14 @@ const getProductInfo = async (req, res) => {
 const getProductAddPage = async(req,res)=>{
     try {
         const category =  await Category.find({isListed:true});
-        console.log("enter");
+        console.log("enter get addproduct");
         
         res.render('product-add',{
             cat:category,
             
         })
-    } catch (error) {
-        console.log("enteru");
+    } catch (error) {   
+      
         res.redirect('/pageError')
     }
 }
@@ -88,15 +87,14 @@ images.push(resizedFileName);
             const newProduct = new Product({
                 productName: products.productName,
                 description: products.description,
-                // If you add brand back in, then:
-                // brand: products.brand,
-                category: categoryId._id, // Use the found category's _id
+                
+               
+                category: categoryId._id, // 
                 regularPrice: products.regularPrice,
                 salePrice: products.salePrice,
-                createdOn: new Date(), // (Consider fixing the typo: "craetedOn")
+                createdOn: new Date(),
                 quantity: products.quantity,
                 size: products.size,
-                // color: products.color, // Uncomment if needed and update your schema accordingly
                 productImage: images,
                 status: 'Available',
             });
@@ -172,9 +170,9 @@ const blockProduct = async (req, res) => {
 
   const editProduct = async (req, res) => {
     try {
-      // Assume productId comes as a route parameter
+      
       const productId = req.params.id;
-      const updatedData = req.body; // Updated fields from the form
+      const updatedData = req.body; 
       console.log('Edit product data received:', updatedData);
   
       // Find the existing product first
@@ -183,7 +181,7 @@ const blockProduct = async (req, res) => {
         return res.status(404).json({ success: false, message: "Product not found" });
       }
   
-      // Optional: Check if the product name is being changed and if it conflicts with another product
+   
       if (
         updatedData.productName &&
         updatedData.productName !== existingProduct.productName
@@ -197,13 +195,10 @@ const blockProduct = async (req, res) => {
         }
       }
   
-      // Process new images if provided, else keep existing images.
-      // (This example replaces existing images if new ones are uploaded.)
-      // Process images: keep existing unless new ones are uploaded
 let images = existingProduct.productImage;
 
 if (req.files && req.files.length > 0) {
-  // Replace only the images corresponding to the uploaded files' positions
+
   for (let i = 0; i < req.files.length; i++) {
     const file = req.files[i];
     const originalImagePath = file.path;
@@ -214,7 +209,7 @@ if (req.files && req.files.length > 0) {
       .resize({ width: 450, height: 440 })
       .toFile(resizedImagePath);
 
-    // Replace the image at the same index as the input
+   
     if (images[i]) {
       images[i] = resizedFileName;
     } else {
@@ -222,10 +217,9 @@ if (req.files && req.files.length > 0) {
     }
   }
 }
-      // Attach the final images array to the update data
+  
       updatedData.productImage = images;
   
-      // Process category: find the category document by name
       const categoryDoc = await Category.findOne({ name: updatedData.category });
       
       if (!categoryDoc) {
@@ -233,14 +227,11 @@ if (req.files && req.files.length > 0) {
       }
       updatedData.category = categoryDoc._id;
   
-      // Optionally, set an updatedOn timestamp
       updatedData.updatedOn = new Date();
   
-      // Update the product document in the database
       const updatedProduct = await Product.findByIdAndUpdate(productId, updatedData, { new: true });
   
-      // Redirect or send a success response
-      //  return res.redirect('/admin/products');
+      
       return res.json({ success: true, product: updatedProduct });
     } catch (error) {
       console.error('Error updating product:', error);

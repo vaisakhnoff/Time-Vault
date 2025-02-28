@@ -36,12 +36,12 @@ const addCategory = async(req,res)=>{
     try {
         const { name, description } = req.body;
         
-        // Validate input
+     
         if (!name || !description) {
             return res.status(400).json({error: "Name and description are required"});
         }
 
-        // Clean and normalize the category name
+       
         const normalizedName = name.trim().toLowerCase();
         
         const existingCategory = await Category.findOne({
@@ -122,7 +122,7 @@ const getListCategory = async (req, res) => {
     try {
       let id = req.query.id;
       await Category.updateOne({ _id: id }, { $set: { isListed: false } });
-      // Instead of redirecting, send a JSON response:
+
       res.json({ status: true, message: "Category unlisted successfully" });
     } catch (error) {
       console.error(error);
@@ -157,18 +157,18 @@ const getListCategory = async (req, res) => {
       const id = req.params.id;
       const { categoryName, description } = req.body;
       
-      // Fetch the current category
+  
       const currentCategory = await Category.findById(id);
       if (!currentCategory) {
         return res.status(400).json({ error: "Category not found" });
       }
       
-      // If the incoming data is identical to the current data, return a specific message
+      
       if (currentCategory.name === categoryName && currentCategory.description === description) {
         return res.status(200).json({ message: "No changes made" });
       }
       
-      // Check for duplicate name excluding the current category
+      
       const existingCategory = await Category.findOne({ name: categoryName, _id: { $ne: id } });
       if (existingCategory) {
         return res.status(400).json({ error: "Category exists, please choose another name" });

@@ -1,3 +1,5 @@
+
+
 const { request } = require('../../app');
 const User = require('../../models/userschema');
 const nodemailer = require('nodemailer')
@@ -20,7 +22,7 @@ const loadHomepage = async (req, res) => {
             quantity: { $gt: 0 }
         }).populate('category').lean(); // Add .lean() for better performance
 
-        // Map the products to include the correct image path
+    
         productData = productData.map(product => ({
             ...product,
             productImage: product.productImage.map(img => `/uploads/product-images/${img}`)
@@ -31,9 +33,7 @@ const loadHomepage = async (req, res) => {
 
         if (userId) {
             const userData = await User.findOne({ _id: userId });
-            if (userData && userData.isBlocked) {
-                return res.redirect('/login');
-            }
+            
             res.render('home', { user: userData, products: productData });
         } else {
             res.render('home', { products: productData });
@@ -58,16 +58,26 @@ const loadLoginPage = async(req,res)=>{
     try{
         if(!req.session.user){
            return  res.render('login');
-        }
+        
+        // }else if(req.session.user && userData.isBlocked){
+        //     req.session.destroy()
+        //      return res.render('login',{message:'User blocked by admin'})
+
+         }
+        
         else{
             res.redirect('/')
         }
+
+        
         
     }
     catch(error){
         res.redirect('/pageNotFound')
        
     }
+
+
 }
 
 const loadSignupPage = async(req,res)=>{
@@ -81,7 +91,6 @@ const loadSignupPage = async(req,res)=>{
 }
 
 const googleAuthCallback = (req, res) => {
-    // Set req.session.user using the authenticated user from Passport
     req.session.user = req.user._id;
     res.redirect('/');
   };
@@ -168,58 +177,73 @@ const securePassword = async(password)=>{
     }
 }
 
+
 const verifyOtp = async (req, res) => {
     try {
-      const { otp } = req.body;
-      console.log("Received OTP:", otp);
-      if (otp === req.session.userOtp) {
-        // Rename the session variable to avoid conflict
-        const userData = req.session.userData;
-        const passwordHash = await securePassword(userData.password);
-        // Use the model (now imported as User)
-        const saveUserData = new User({
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          email: userData.email,
-          phoneNumber: userData.phoneNumber,
-          password: passwordHash,
-        });
-        await saveUserData.save();
-        // req.session.user = saveUserData._id;
-        res.json({ success: true, redirectUrl: "/login" });
-      } else {
-        res.status(400).json({ success: false, message: "Invalid OTP, Please try again." });
-      }
-    } catch (error) {
-      console.error("Error verifying OTP", error);
-      res.status(500).json({ success: false, message: "An error occurred" });
-    }
-  };
-  
-  const resendOtp = async (req,res)=>{
-try {
-  const {email} = req.session.userData;
-  if(!email){
-    return res.status(400).json({success:false,message:"Email not found in session "});
+        const { otp } = req.body;
+        console.log("Received OTP:", otp);
 
-    const otp = generateOtp();
-    req.session.userOtp=otp;
-    const email = await sendverificationEmail(email,otp);
-    if(emailSend){
-        console.log("Resend OTP",otp);
-        res.status(200).json({success:true,message:"OTP resend successfully"})
-    }
-        else{
-res.status(500).json({success:false,message:"Failed to resend OTP.Please try again"})
+        // Check if the OTP is for signup
+        if (req.session.userOtp && otp === req.session.userOtp) {
+            const userData = req.session.userData;
+            const passwordHash = await securePassword(userData.password);
+
+            const saveUserData = new User({
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                email: userData.email,
+                phoneNumber: userData.phoneNumber,
+                password: passwordHash,
+            });
+
+            await saveUserData.save();
+            req.session.userOtp = null; // Clear OTP after successful signup
+            req.session.userData = null; // Clear user data
+
+            return res.json({ success: true, redirectUrl: "/login" });
         }
-        
-  }
-    
-} catch (error) {
-    console.error("Error sending OTP",error);
-    res.status(500).json({success:false,message:"Internal server error . Please try again later "})
-}
-  }
+
+        // Check if the OTP is for forgot password
+        if (req.session.forgotOtp && otp === req.session.forgotOtp) {
+            req.session.otpVerified = true; // Mark OTP as verified for password reset
+            return res.json({ success: true, redirectUrl: "/resetPassword" });
+        }
+
+        return res.status(400).json({ success: false, message: "Invalid OTP, Please try again." });
+    } catch (error) {
+        console.error("Error verifying OTP", error);
+        res.status(500).json({ success: false, message: "An error occurred" });
+    }
+};
+
+  
+  const resendOtp = async (req, res) => {
+    try {
+        const { email } = req.session.userData;
+        if (!email) {
+            console.log("Email not found in session");
+            return res.status(400).json({ success: false, message: "Email not found in session" });
+        }
+
+        const otp2 = generateOTP();
+        console.log("Resend Otp", otp2);
+        req.session.userOtp = otp2;
+
+        const emailSend2 = await sendverificationEmail(email, otp2);247738
+        if (emailSend2) {
+           
+            res.status(200).json({ success: true, message: "OTP resent successfully" });
+        } else {
+            console.log("Failed to resend OTP");
+            res.status(500).json({ success: false, message: "Failed to resend OTP. Please try again" });
+        }
+    } catch (error) {
+        console.error("Error sending OTP", error);
+        res.status(500).json({ success: false, message: "Internal server error. Please try again later" });
+    }
+};
+
+
 
   const login = async(req,res)=>{
     try {
@@ -264,40 +288,94 @@ res.redirect('/')
     }
   }
 
-  const loadShopPage = async(req,res)=>{
 
+
+ const handleGoogleAuth = (req, res, next) => {
+  passport.authenticate('google', (err, user, info) => {
+    if (err) {
+      return next(err);
+    }
+    if (!user) {
+     
+      const message = info && info.message ? info.message : "Authentication failed";
+      return res.redirect('/login?message=' + encodeURIComponent(message));
+    }
+    req.logIn(user, (err) => {
+      if (err) {
+        return next(err);
+      }
+     
+      req.session.user = user._id;
+     
+      
+      return res.redirect('/');
+    });
+  })(req, res, next);
+};
+
+  const loadShopPage = async(req, res) => {
     try {
-        console.log("1");
-        
         const page = parseInt(req.query.page) || 1;
         const limit = 9;
         const skip = (page - 1) * limit;
-
-        // Get all categories
-        const categories = await Category.find({ isListed: true });
-        console.log("2");
         
-        
+      
         let query = { isBlocked: false };
+        
+      
+        if (req.query.search) {
+            query.productName = { $regex: req.query.search, $options: 'i' };
+        }
+
         
         if (req.query.category) {
             query.category = req.query.category;
         }
-        
-        if (req.query.search) {
-            query.productName = { $regex: req.query.search, $options: 'i' };
-        }
-console.log("3");
 
-        // Get products and format image paths
+       
+        if (req.query.minPrice || req.query.maxPrice) {
+            query.regularPrice = {};
+            if (req.query.minPrice) {
+                query.regularPrice.$gte = parseInt(req.query.minPrice);
+            }
+            if (req.query.maxPrice) {
+                query.regularPrice.$lte = parseInt(req.query.maxPrice);
+            }
+        }
+
+      
+        const categories = await Category.find({ isListed: true });
+
+       
+        let sortQuery = {};
+        switch(req.query.sort) {
+            case 'price_asc':
+                sortQuery = { regularPrice: 1 };
+                break;
+            case 'price_desc':
+                sortQuery = { regularPrice: -1 };
+                break;
+            case 'name_asc':
+                sortQuery = { productName: 1 };
+                break;
+            case 'name_desc':
+                sortQuery = { productName: -1 };
+                break;
+            case 'newest':
+                sortQuery = { createdAt: -1 };
+                break;
+            default:
+                sortQuery = { createdAt: -1 };
+        }
+
         let products = await Product.find(query)
             .populate('category')
+            .sort(sortQuery)
             .skip(skip)
             .limit(limit)
-            .sort({ createdAt: -1 })
             .lean();
 
-        // Format image paths
+        
         products = products.map(product => ({
             ...product,
             productImage: product.productImage.map(img => `/uploads/product-images/${img}`)
@@ -305,7 +383,6 @@ console.log("3");
 
         const totalProducts = await Product.countDocuments(query);
         const totalPages = Math.ceil(totalProducts / limit);
-console.log("hi");
 
         res.render('shop', {
             products,
@@ -313,7 +390,10 @@ console.log("hi");
             totalPages,
             categories,
             selectedCategory: req.query.category || '',
-            searchQuery: req.query.search || ''
+            searchQuery: req.query.search || '',
+            sort: req.query.sort || '',
+            minPrice: req.query.minPrice || '',
+            maxPrice: req.query.maxPrice || ''
         });
 
     } catch (error) {
@@ -321,6 +401,97 @@ console.log("hi");
         res.redirect('/pageNotFound');
     }
 }
+
+const forgotPassword = async (req,res)=>{
+
+    return res.render('forgotPassword')
+}
+
+const sendForgotOtp = async (req, res) => {
+    try {
+      const { email } = req.body;
+  
+      
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.render("forgotPassword", { message: "Email not found" });
+      }
+  
+      // Generate OTP
+      const otp3 =  generateOTP();
+      console.log(otp3);
+      
+      const otpExpiration = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+  
+     
+      req.session.forgotOtp = otp3;
+      req.session.forgotEmail = email;
+      req.session.otpExpiration = otpExpiration;
+  
+    
+      await sendverificationEmail(email, otp3);
+  
+      
+      return res.render("verify-otp", { 
+        message: "OTP sent to your email", 
+        type: "forgot" 
+      });
+  
+    } catch (error) {
+      console.error("Error sending forgot password OTP:", error);
+      return res.status(500).send("Internal Server Error");
+    }
+  };
+
+  const loadResetPassword = (req, res) => {
+    if (!req.session.otpVerified) {
+      return res.redirect('/forgotPassword');
+    }
+    res.render('resetPassword', { message: null });
+  };
+
+ 
+
+  
+  const resetPassword= async (req, res) => {
+    if (!req.session.otpVerified) {
+      return res.redirect('/forgotPassword');
+    }
+    try {
+      const { password, confirmPassword } = req.body;
+      if (password !== confirmPassword) {
+        return res.render('reset-password', { message: "Passwords do not match" });
+      }
+  
+      const email = req.session.forgotEmail;
+      if (!email) {
+        return res.redirect('/forgotPassword');
+      }
+  
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.render('resetPassword', { message: "User not found" });
+      }
+  
+      const passwordHash = await securePassword(password);
+      user.password = passwordHash;
+      await user.save();
+  
+      // Clear the session variables related to forgot password
+      req.session.otpVerified = false;
+      req.session.forgotOtp = null;
+      req.session.forgotEmail = null;
+      req.session.otpExpiration = null;
+  
+      return res.redirect('/login');
+    } catch (error) {
+      console.error("Error resetting password", error);
+      return res.render('reset-password', { message: "An error occurred. Please try again." });
+    }
+  };
+  
+  
+  
 
 module.exports ={
     loadHomepage,
@@ -333,5 +504,12 @@ module.exports ={
     login,
     logout,
     googleAuthCallback,
-    loadShopPage
+    loadShopPage,
+    handleGoogleAuth,
+    forgotPassword,
+    sendForgotOtp,
+    loadResetPassword,
+    resetPassword,
+    sendverificationEmail
+   
 }

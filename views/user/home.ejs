@@ -9,18 +9,15 @@
 						<div class="row single-slide align-items-center d-flex">
 							<div class="col-lg-5 col-md-6">
 								<div class="banner-content">
-									<h1>Nike New <br>Collection!</h1>
+									<h1>Watches <br>Best sellers !</h1>
 									<p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
 										dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation.</p>
-									<div class="add-bag d-flex align-items-center">
-										<a class="add-btn" href=""><span class="lnr lnr-cross"></span></a>
-										<span class="add-text text-uppercase">Add to Bag</span>
-									</div>
+									
 								</div>
 							</div>
 							<div class="col-lg-7">
 								<div class="banner-img">
-									<img class="img-fluid" src="img/banner/banner-img.png" alt="">
+									<img class="img-fluid" src="img/banner/banner1.png" alt="">
 								</div>
 							</div>
 						</div>
@@ -39,7 +36,7 @@
 							</div>
 							<div class="col-lg-7">
 								<div class="banner-img">
-									<img class="img-fluid" src="img/banner/banner-img.png" alt="">
+									<img class="img-fluid" src="img/banner/banner2.png" alt="">
 								</div>
 							</div>
 						</div>
@@ -189,7 +186,7 @@
                                      alt="<%= product.productName %>"
                                      style="height: 255px; object-fit: cover;">
                                 <div class="p_icon">
-                                    <a href="/product/<%= product._id %>">
+                                    <a href="/productDetails?id=<%= product._id %>">
                                         <i class="ti-eye"></i>
                                     </a>
                                     <a href="/add-to-cart/<%= product._id %>">
@@ -201,7 +198,7 @@
                                 </div>
                             </div>
                             <div class="product-btm">
-                                <a href="/product/<%= product._id %>" class="d-block">
+                                <a href="/productDetails?id=<%= product._id %>" class="d-block">
                                     <h4><%= product.productName %></h4>
                                 </a>
                                 <div class="mt-3">

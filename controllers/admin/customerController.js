@@ -2,22 +2,21 @@ const User = require('../../models/userschema');
 
 const customerInfo = async (req, res) => {
   try {
-    // Get the search term from the query string, default to empty string
+    
     let search = "";
     if (req.query.search) {
       search = req.query.search;
     }
 
-    // Get the page from query string; default to 1 if not provided.
+    
     let page = 1;
     if (req.query.page) {
       page = parseInt(req.query.page, 10) || 1;
     }
 
-    const limit = 3; // Number of documents per page
+    const limit = 3; 
 
-    // Create a search query. Note: We're using firstName, lastName, and email
-    // since your template displays firstName and lastName.
+   
     const query = {
       isAdmin: false,
       $or: [
@@ -27,13 +26,13 @@ const customerInfo = async (req, res) => {
       ]
     };
 
-    // Retrieve paginated data
+    
     const userData = await User.find(query)
       .limit(limit)
       .skip((page - 1) * limit)
       .exec();
 
-    // Count total matching documents
+    
     const count = await User.countDocuments(query);
     const totalPages = Math.ceil(count / limit);
 
@@ -42,7 +41,7 @@ const customerInfo = async (req, res) => {
       data: userData, 
       totalPages, 
       currentPage: page,
-      searchTerm: search  // Optional: in case you want to show the search term in your view
+      searchTerm: search 
     });
   } catch (error) {
     console.error("Error fetching customer info:", error);
