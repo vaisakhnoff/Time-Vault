@@ -39,18 +39,18 @@ const userschema =  new Schema({
         type:Boolean,
         default:false
       },
-      cart:[{
-        type:Schema.Types.ObjectId,
-        ref:'cart'
-      }],
+      // cart:[{
+      //   type:Schema.Types.ObjectId,
+      //   ref:'cart'
+      // }],
       wallet:{
         type:Number,
         default:0
       },
-      wishlist:[{
-        type:Schema.Types.ObjectId,
-        ref:'wishlist'
-      }],
+      // wishlist:[{
+      //   type:Schema.Types.ObjectId,
+      //   ref:'wishlist'
+      // }],
       orderHistory:{
         type:Schema.Types.ObjectId,
         ref:'order'
@@ -90,12 +90,12 @@ const userschema =  new Schema({
       },
       profileImage: {
         type: String,
-        default: '/uploads/profile/default-profile.png' // Set a default image path
+        default: '/uploads/profile/default-profile.png' 
     }
 
 
 
-})
+},{ timestamps: true })
 
 const user = mongoose.model('user',userschema);
 

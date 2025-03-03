@@ -1,0 +1,23 @@
+<%- include("../../views/partials/user/header") %>
+
+<!-- Add a gap between header and order details -->
+<div class="header-gap" style="margin-top: 50px;"></div>
+
+<section class="order_confirm_page section_gap">
+  <div class="container">
+    <h1>Order Confirmation</h1>
+    <p class="lead">Your order has been placed successfully!</p>
+
+    <div class="order_summary mt-4">
+      <h2>Order Details</h2>
+      <p><strong>Order ID:</strong> <%= order._id %></p>
+      <p><strong>Total Amount:</strong> $<%= order.totalAmount.toFixed(2) %></p>
+    </div>
+
+    <div class="mt-4">
+      <a href="/orders" class="btn btn-primary">View Orders</a>
+    </div>
+  </div>
+</section>
+
+<%- include("../../views/partials/user/footer") %>

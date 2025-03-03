@@ -20,12 +20,7 @@ const getProductInfo = async (req, res) => {
         query.productName = { $regex: req.query.search, $options: 'i' };
     
 
-        // query = {
-        //   $or: [
-        //     { productName: { $regex: req.query.search, $options: 'i' } },
-        //     { brand: { $regex: req.query.search, $options: 'i' } }
-        //   ]
-        // };
+      
       }
   
       const products = await Product.find(query).populate('category');

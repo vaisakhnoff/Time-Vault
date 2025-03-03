@@ -3,6 +3,7 @@ const {sendverificationEmail}  = require('../user/userController')
 const multer = require('multer');
 const path = require('path');
 const Address = require('../../models/addressSchema');
+const Order = require('../../models/orderSchema');
 
 function generateOTP(){
     return Math.floor(100000 + Math.random()*900000).toString();
@@ -302,6 +303,116 @@ const addAddressPage = async(req,res)=>{
     }
 }
 
+const addAddress = async (req, res) => {
+  try {
+    const userId = req.session.user;
+   
+    const { name, city, landMark, state, pincode, phone_no, altPhone_no } = req.body;
+    
+    const addressType = req.body.address ? req.body.address.addressType : null;
+
+    const newAddress = new Address({
+      userId,
+      address: { addressType },
+      name,
+      city,
+      landMark,
+      state,
+      pincode,
+      phone_no,
+      altPhone_no
+    });
+
+    await newAddress.save();
+
+    res.redirect('/userAddress?message=Address added successfully');
+  } catch (error) {
+    console.error('Error adding address:', error);
+    res.redirect('/pageNotFound');
+  }
+};
+
+
+const editAddressPage = async (req, res) => {
+  try {
+    // Get the address id from the posted form data
+    const addressId = req.body.addressId;
+    const addressData = await Address.findById(addressId).lean();
+    
+    if (!addressData) {
+      return res.redirect('/userAddress?message=Address not found');
+    }
+    
+    res.render('editAddress', {
+      address: addressData
+    });
+  } catch (error) {
+    console.error('Error fetching address for edit:', error);
+    res.redirect('/pageNotFound');
+  }
+};
+
+const updateAddress = async (req, res) => {
+    try {
+      const { addressId, name, city, landMark, state, pincode, phone_no, altPhone_no } = req.body;
+      const addressType = req.body.address ? req.body.address.addressType : null;
+  
+      await Address.findByIdAndUpdate(addressId, {
+        name,
+        city,
+        landMark,
+        state,
+        pincode,
+        phone_no,
+        altPhone_no,
+        address: { addressType }
+      });
+  
+      res.redirect('/userAddress?message=Address updated successfully');
+    } catch (error) {
+      console.error('Error updating address:', error);
+      res.redirect('/pageNotFound');
+    }
+  };
+
+const deleteAddress = async (req, res) => {
+  try {
+    const addressId = req.body.addressId;
+    if (!addressId) {
+      return res.redirect('/userAddress?message=Address not found');
+    }
+    await Address.findByIdAndDelete(addressId);
+    res.redirect('/userAddress?message=Address deleted successfully');
+  } catch (error) {
+    console.error('Error deleting address:', error);
+    res.redirect('/pageNotFound');
+  }
+};
+
+const userOrders = async (req, res) => {
+  try {
+    const userId = req.session.user;
+    const userData = await User.findById(userId).lean();
+    const orders = await Order.find({ user: userId })
+  .populate({
+    path: 'items.productId',
+    model: 'Product', 
+  })
+  .sort({ createdAt: -1 })
+  .lean();
+
+     
+
+    res.render('userOrders', {
+      user: userData,
+      orders: orders
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.redirect('/pageNotFound');
+  }
+};
+
 module.exports ={
     userProfile,
     changeEmail,
@@ -314,5 +425,10 @@ module.exports ={
     editProfile,
     updateProfile,
     userAddress,
-    addAddressPage
+    addAddressPage,
+    addAddress,
+    editAddressPage,
+    updateAddress,
+    deleteAddress,
+    userOrders
 }

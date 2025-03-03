@@ -1,0 +1,121 @@
+<%- include("../../views/partials/admin/header") %>
+
+<div class="container mt-5">
+  <h1>Order Details</h1>
+  
+  <!-- Order Overview -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div>
+        <h5>Order ID: <%= order._id %></h5>
+        <small class="text-muted">Ordered on: <%= new Date(order.createdAt).toLocaleDateString() %></small>
+      </div>
+      <div>
+        <span class="badge <%= order.orderStatus === 'Delivered' ? 'bg-success' : order.orderStatus === 'Cancelled' ? 'bg-danger' : 'bg-warning' %>">
+          <%= order.orderStatus %>
+        </span>
+      </div>
+    </div>
+    <div class="card-body">
+      <!-- User Details -->
+      <h6>User Information</h6>
+      <p>
+        <strong>Name: </strong> <%= order.user.firstName %> <%= order.user.lastName %> <br>
+        <strong>Email: </strong> <%= order.user.email %> <br>
+        <strong>Phone: </strong> <%= order.user.phone %>
+      </p>
+      
+      <!-- Shipping Address -->
+      <% if (address) { %>
+      <h6>Shipping Address</h6>
+      <p>
+        <strong>Name: </strong> <%= address.firstName %> <br>
+        <strong>Address: </strong> <%= address.addressLine1 %>, <%= address.addressLine2 %> <br>
+        <strong>City: </strong> <%= address.city %>, <strong>State: </strong> <%= address.state %> <br>
+        <strong>PIN: </strong> <%= address.pincode %> <br>
+        <strong>Phone: </strong> <%= address.phone_no %>
+      </p>
+      <% } %>
+      
+      <!-- Order Summary -->
+      <h6>Summary</h6>
+      <p>
+        <strong>Total Amount: </strong> ₹<%= order.totalAmount %> <br>
+        <% if (order.shippingCost) { %>
+          <strong>Shipping Cost: </strong> ₹<%= order.shippingCost %> <br>
+        <% } %>
+      </p>
+      
+      <!-- Order Status Update Form -->
+      <h6>Update Order Status</h6>
+      <form id="updateStatusForm" action="/admin/update-order-status" method="POST" class="form-inline">
+        <input type="hidden" name="orderId" value="<%= order._id %>">
+        <div class="mb-3">
+          <select name="newStatus" class="form-select w-auto d-inline">
+            <option value="">Select new status</option>
+            <option value="Pending" <%= order.orderStatus === 'Pending' ? 'selected' : '' %>>Pending</option>
+            <option value="Shipped" <%= order.orderStatus === 'Shipped' ? 'selected' : '' %>>Shipped</option>
+            <option value="Out for Delivery" <%= order.orderStatus === 'Out for Delivery' ? 'selected' : '' %>>Out for Delivery</option>
+            <option value="Delivered" <%= order.orderStatus === 'Delivered' ? 'selected' : '' %>>Delivered</option>
+            <option value="Cancelled" <%= order.orderStatus === 'Cancelled' ? 'selected' : '' %>>Cancelled</option>
+          </select>
+          <button type="submit" class="btn btn-primary ms-2">Update</button>
+        </div>
+      </form>
+      
+      <!-- Return Request Verification (if applicable) -->
+      <% if (order.orderStatus === 'Delivered' && order.returnRequest) { %>
+      <div class="mt-4">
+        <h6>Return Request</h6>
+        <p>
+          <strong>Reason: </strong> <%= order.returnRequest.reason %> <br>
+          <strong>Status: </strong> <%= order.returnRequest.status %>
+        </p>
+        <% if (order.returnRequest.status === 'Pending') { %>
+          <form id="verifyReturnForm" action="/admin/verify-return-request" method="POST">
+            <input type="hidden" name="orderId" value="<%= order._id %>">
+            <button name="approve" value="true" type="submit" class="btn btn-success">Approve Return & Refund</button>
+            <button name="approve" value="false" type="submit" class="btn btn-danger">Decline Return</button>
+          </form>
+        <% } %>
+      </div>
+      <% } %>
+    </div>
+  </div>
+  
+  <!-- Order Items -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5>Items in Order</h5>
+    </div>
+    <div class="card-body">
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Image</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% order.items.forEach(item => { %>
+          <tr>
+            <td><%= item.productId.productName %></td>
+            <td>
+              <img src="<%= item.productId.productImage[0] %>" alt="<%= item.productId.productName %>" style="width: 80px; height: 80px; object-fit:cover;">
+            </td>
+            <td>₹<%= item.price %></td>
+            <td><%= item.quantity %></td>
+            <td>₹<%= item.totalPrice %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+</div>
+
+<%- include("../../views/partials/admin/footer") %>

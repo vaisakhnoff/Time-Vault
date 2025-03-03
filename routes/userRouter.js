@@ -5,6 +5,8 @@ const passport = require('passport');
 const auth=require('../middleware/user/auth')
 const productController = require('../controllers/user/productController')
 const profileController = require('../controllers/user/profileController')
+const cartController = require('../controllers/user/cartController')
+const orderController = require('../controllers/user/orderController')
 
 router.get('/',userController.loadHomepage)
 router.get('/pageNotFound',userController.pageNotFound)
@@ -24,7 +26,7 @@ router.post('/resetPassword', userController.resetPassword)
 
 
 router.get('/productDetails',auth.checkSession,productController.productDetails);
-router.get('/shopPage',auth.checkSession,userController.loadShopPage);
+router.get('/shopPage',userController.loadShopPage);
 
 router.get('/userProfile',auth.checkSession,profileController.userProfile)
 router.get('/changeEmail',auth.checkSession,profileController.changeEmail);
@@ -39,6 +41,25 @@ router.post('/updateProfile',auth.checkSession,profileController.updateProfile);
 
 router.get('/userAddress',auth.checkSession,profileController.userAddress);
 router.get('/addAddress',auth.checkSession,profileController.addAddressPage);
-// router.post('/addAddress',auth.checkSession,profileController.addAddress);
+router.post('/addAddress',auth.checkSession,profileController.addAddress);
+router.post('/editAddress',auth.checkSession,profileController.editAddressPage)
+router.post('/updateAddress', auth.checkSession, profileController.updateAddress);
+router.post('/deleteAddress', auth.checkSession, profileController.deleteAddress);
+
+router.get('/orders',auth.checkSession,profileController.userOrders);
+router.get('/order/:id', auth.checkSession, orderController.viewOrderDetails);
+router.post('/cancelOrder', auth.checkSession, orderController.cancelOrder);
+router.post('/submitReview', auth.checkSession, orderController.submitReview);
+
+router.get('/cartPage',auth.checkSession,cartController.cartPage)
+router.post('/add-to-cart/:id', auth.checkSession, cartController.addToCart);
+router.post('/removeFromCart', auth.checkSession, cartController.removeFromCart);
+
+
+router.get('/checkoutPage',auth.checkSession,cartController.checkoutPage);
+router.post('/placeOrder',auth.checkSession,cartController.placeOrder);
+router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
+
+
 
 module.exports =router;

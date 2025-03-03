@@ -318,6 +318,9 @@ res.redirect('/')
         const page = parseInt(req.query.page) || 1;
         const limit = 9;
         const skip = (page - 1) * limit;
+
+        const userId = req.session.user;
+        const userData = await User.findById(userId).lean();
         
       
         let query = { isBlocked: false };
@@ -393,7 +396,8 @@ res.redirect('/')
             searchQuery: req.query.search || '',
             sort: req.query.sort || '',
             minPrice: req.query.minPrice || '',
-            maxPrice: req.query.maxPrice || ''
+            maxPrice: req.query.maxPrice || '',
+            user:userData
         });
 
     } catch (error) {

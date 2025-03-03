@@ -1,0 +1,68 @@
+<%- include("../../views/partials/admin/header") %>
+
+<div class="container mt-5">
+  <h1>Order Management</h1>
+
+  <!-- Search and Filter -->
+  <form method="GET" action="/admin/orders" class="mb-4">
+    <input type="text" name="search" placeholder="Search by Order ID" value="<%= search %>">
+    <select name="status">
+      <option value="">All Statuses</option>
+      <option value="Pending" <%= filterStatus === 'Pending' ? 'selected' : '' %>>Pending</option>
+      <option value="Shipped" <%= filterStatus === 'Shipped' ? 'selected' : '' %>>Shipped</option>
+      <option value="Out for Delivery" <%= filterStatus === 'Out for Delivery' ? 'selected' : '' %>>Out for Delivery</option>
+      <option value="Delivered" <%= filterStatus === 'Delivered' ? 'selected' : '' %>>Delivered</option>
+      <option value="Cancelled" <%= filterStatus === 'Cancelled' ? 'selected' : '' %>>Cancelled</option>
+    </select>
+    <button type="submit" class="btn btn-primary">Search/Filter</button>
+    <a href="/admin/orders" class="btn btn-secondary">Clear</a>
+  </form>
+
+  <!-- Orders List -->
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>Order ID</th>
+        <th>Date</th>
+        <th>User</th>
+        <th>Status</th>
+        <th>Total Amount</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if(orders && orders.length > 0) { %>
+        <% orders.forEach(order => { %>
+          <tr>
+            <td><%= order._id %></td>
+            <td><%= new Date(order.createdAt).toLocaleDateString() %></td>
+            <td><%= order.user ? order.user.firstName : 'N/A' %></td>
+            <td><%= order.orderStatus %></td>
+            <td>₹<%= order.totalAmount %></td>
+            <td>
+              <a href="/admin/order/<%= order._id %>" class="btn btn-info btn-sm">View</a>
+              <!-- You can include further controls here such as inline edit buttons -->
+            </td>
+          </tr>
+        <% }); %>
+      <% } else { %>
+        <tr>
+          <td colspan="6" class="text-center">No orders found.</td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  <nav>
+    <ul class="pagination">
+      <% for(let i = 1; i <= totalPages; i++) { %>
+        <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+          <a class="page-link" href="/admin/orders?page=<%= i %>&search=<%= search %>&status=<%= filterStatus %>"><%= i %></a>
+        </li>
+      <% } %>
+    </ul>
+  </nav>
+</div>
+
+<%- include("../../views/partials/admin/footer") %>

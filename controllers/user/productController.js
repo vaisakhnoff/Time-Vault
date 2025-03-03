@@ -8,18 +8,18 @@ const productDetails = async(req,res)=>{
         const userId = req.session.user;
         const productId = req.query.id;
 
-        // Check if productId exists
+       
         if (!productId) {
             console.log("No product ID provided");
             return res.redirect('/pageNotFound');
         }
 
-        // Find product and populate category
+        
         const product = await Product.findById(productId)
             .populate('category')
             .lean();
 
-        console.log(product);
+        
         
 
         if (!product) {
@@ -27,10 +27,10 @@ const productDetails = async(req,res)=>{
             return res.redirect('/pageNotFound');
         }
 
-        // Format image paths
+       
         product.productImage = product.productImage.map(img => `/uploads/product-images/${img}`);
 
-        // Get related products from same category
+  
         const relatedProducts = await Product.find({
             category: product.category._id,
             _id: { $ne: productId },
@@ -39,12 +39,12 @@ const productDetails = async(req,res)=>{
         .limit(4)
         .lean();
 
-        // Format related products image paths
+     
         relatedProducts.forEach(prod => {
             prod.productImage = prod.productImage.map(img => `/uploads/product-images/${img}`);
         });
 
-        // Get user data if logged in
+       
       
         const userData = userId ? await User.findById(userId).lean() : null;
 

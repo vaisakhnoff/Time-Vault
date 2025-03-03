@@ -1,0 +1,251 @@
+<%- include("../../views/partials/user/header") %>
+
+<!-- Spacer to create gap between header and contents -->
+<div style="height: 80px;"></div>
+
+<div class="container mt-5 mb-5">
+  <div class="card">
+    <div class="card-header">
+      <div class="d-flex justify-content-between align-items-center">
+        <h3>Order Details #<%= order._id %></h3>
+        <div>
+          <% if (order.orderStatus !== 'Cancelled' && order.orderStatus !== 'Delivered') { %>
+            <form action="/cancelOrder" method="POST" class="d-inline">
+              <input type="hidden" name="orderId" value="<%= order._id %>">
+              <button type="submit" class="btn btn-danger" 
+                      onclick="return confirm('Are you sure you want to cancel this order?')">
+                Cancel Order
+              </button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <!-- Order Status Timeline -->
+      <div class="order-timeline mb-4">
+        <div class="status-track">
+          <% const statuses = ['Pending', 'Processing', 'Shipped', 'Delivered'] %>
+          <% const currentIndex = statuses.indexOf(order.orderStatus) %>
+          
+          <% statuses.forEach((status, index) => { %>
+            <div class="status-step <%= index <= currentIndex ? 'active' : '' %>">
+              <div class="status-point"></div>
+              <div class="status-label"><%= status %></div>
+              <div class="status-date">
+                <% if (order.statusUpdates && order.statusUpdates[status]) { %>
+                  <%= new Date(order.statusUpdates[status]).toLocaleDateString() %>
+                <% } %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+      <!-- Order Items -->
+      <div class="order-items mb-4">
+        <h4>Items</h4>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th>Total</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% order.items.forEach(item => { %>
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <img src="/uploads/product-images/<%= item.productId.productImage[0] %>" 
+                           alt="<%= item.productId.productName %>"
+                           style="width: 50px; height: 50px; object-fit: cover;">
+                      <span class="ms-2"><%= item.productId.productName %></span>
+                    </div>
+                  </td>
+                  <td>₹<%= item.price %></td>
+                  <td><%= item.quantity %></td>
+                  <td>₹<%= item.price * item.quantity %></td>
+                  <td>
+                    <% if (order.orderStatus === 'Delivered') { %>
+                      <% if (!item.reviewed) { %>
+                        <button class="btn btn-sm btn-primary" 
+                                onclick="openReviewModal('<%= item.productId._id %>')">
+                          Write Review
+                        </button>
+                      <% } else { %>
+                        <span class="badge bg-success">Reviewed</span>
+                      <% } %>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Order Summary -->
+      <div class="row">
+        <div class="col-md-6">
+          <div class="shipping-address">
+            <h4>Shipping Address</h4>
+            <p>
+              <%= address.name %><br>
+              <%= address.addressType %><br>
+              <%= address.city %>, <%= address.state %><br>
+              PIN: <%= address.pincode %><br>
+              Phone: <%= address.phone_no %>
+            </p>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="order-summary">
+            <h4>Payment Summary</h4>
+            <table class="table table-borderless">
+              <tr>
+                <td>Subtotal:</td>
+                <td class="text-end">₹<%= order.totalAmount %></td>
+              </tr>
+              <tr>
+                <td>Shipping:</td>
+                <td class="text-end">₹<%= order.shippingCost || 0 %></td>
+              </tr>
+              <tr>
+                <td><strong>Total:</strong></td>
+                <td class="text-end"><strong>₹<%= order.totalAmount + (order.shippingCost || 0) %></strong></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Review Modal -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Write a Review</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form action="/submitReview" method="POST">
+        <div class="modal-body">
+          <input type="hidden" name="productId" id="reviewProductId">
+          <input type="hidden" name="orderId" value="<%= order._id %>">
+          
+          <div class="mb-3">
+            <label>Rating</label>
+            <div class="rating">
+              <% for(let i=5; i>=1; i--) { %>
+                <input type="radio" name="rating" value="<%= i %>" id="star<%= i %>">
+                <label for="star<%= i %>">☆</label>
+              <% } %>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label>Review</label>
+            <textarea name="review" class="form-control" rows="3" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Submit Review</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  .status-track {
+    display: flex;
+    justify-content: space-between;
+    margin: 40px 0;
+    position: relative;
+  }
+
+  .status-track::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #dee2e6;
+    transform: translateY(-50%);
+  }
+
+  .status-step {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+  }
+
+  .status-point {
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border: 2px solid #dee2e6;
+    border-radius: 50%;
+    margin: 0 auto;
+  }
+
+  .status-step.active .status-point {
+    background: #28a745;
+    border-color: #28a745;
+  }
+
+  .status-label {
+    margin-top: 8px;
+    font-size: 14px;
+  }
+
+  .status-date {
+    font-size: 12px;
+    color: #6c757d;
+  }
+
+  .rating {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+
+  .rating input {
+    display: none;
+  }
+
+  .rating label {
+    cursor: pointer;
+    font-size: 25px;
+    color: #ddd;
+    padding: 5px;
+  }
+
+  .rating input:checked ~ label {
+    color: #ffd700;
+  }
+
+  .rating label:hover,
+  .rating label:hover ~ label {
+    color: #ffd700;
+  }
+</style>
+
+<script>
+function openReviewModal(productId) {
+  document.getElementById('reviewProductId').value = productId;
+  new bootstrap.Modal(document.getElementById('reviewModal')).show();
+}
+</script>
+
+<%- include("../../views/partials/user/footer") %>

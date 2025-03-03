@@ -26,7 +26,7 @@ app.use(session({
 
 
 
-
+// app.use('/uploads', express.static('uploads'))
 
 app.use(nocache())
 app.use(passport.initialize());

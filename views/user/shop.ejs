@@ -1,5 +1,4 @@
-
-	<style>
+<style>
 		.single-product {
 			margin-bottom: 30px;
 			transition: all 0.3s;
@@ -320,9 +319,9 @@
                                  onerror="this.src='/img/no-image.jpg'"
                                  style="height: 255px; object-fit: cover;">
                             <div class="p_icon">
-                                <a href="/add-to-cart/<%= product._id %>" onclick="event.stopPropagation();">
-                                    <i class="ti-shopping-cart"></i>
-                                </a>
+                                <form method="post" action="/add-to-cart/<%= product._id %>" onclick="event.stopPropagation();">
+                                    <button type="submit" class="btn btn-primary"><i class="ti-shopping-cart"></i></button>
+                                </form>
                                 <a href="/add-to-wishlist/<%= product._id %>" onclick="event.stopPropagation();">
                                     <i class="ti-heart"></i>
                                 </a>

@@ -1,0 +1,107 @@
+<%- include("../../views/partials/user/header") %>
+
+
+<div class="card-header d-flex justify-content-between align-items-center" style="margin-bottom: 15px;">
+  <!-- header content -->
+</div>
+
+
+<div class="container mt-5 mb-5">
+  <div class="row">
+    <div class="col-12">
+      <h2 class="mb-4">My Orders</h2>
+      
+      <% if (orders && orders.length > 0) { %>
+        <% orders.forEach(function(order) { %>
+          <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <div>
+                <h5 class="mb-0">Order #<%= order._id %></h5>
+                <small class="text-muted">
+                  Ordered on <%= new Date(order.createdAt).toLocaleDateString() %>
+                </small>
+              </div>
+              <span class="badge bg-<%= order.orderStatus === 'Delivered' ? 'success' : 
+                                    order.orderStatus === 'Cancelled' ? 'danger' : 
+                                    'warning' %>">
+                <%= order.orderStatus %>
+              </span>
+            </div>
+            
+            <div class="card-body">
+              <div class="row">
+                <% order.items.forEach(function(item) { %>
+                  <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="product-box p-2 border text-center">
+                      <% if (item.productId && item.productId.productImage && item.productId.productImage.length > 0) { %>
+                        <img src="/uploads/product-images/<%= item.productId.productImage[0] %>" 
+                             alt="<%= item.productId.productName %>"
+                             class="img-fluid mb-2" style="width: 100px; height: 100px; object-fit: cover;">
+                      <% } else { %>
+                        <img src="/uploads/product-images/default.jpg" 
+                             alt="No Image"
+                             class="img-fluid mb-2" style="width: 100px; height: 100px; object-fit: cover;">
+                      <% } %>
+                      <h6 class="mb-1"><%= item.productId.productName %></h6>
+                      <p class="mb-1">Qty: <%= item.quantity %></p>
+                      <p class="mb-0">₹<%= item.price %></p>
+                    </div>
+                  </div>
+                <% }); %>
+              </div>
+              <hr>
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-2">Order Summary</h6>
+                  <p class="mb-1">Total Amount: ₹<%= order.totalAmount %></p>
+                  <p class="mb-1">Payment Method: <%= order.paymentMethod %></p>
+                  <%
+                    // Override payment status if the order is delivered.
+                    let displayPaymentStatus = order.paymentStatus;
+                    if(order.orderStatus === 'Delivered'){
+                      displayPaymentStatus = 'Paid';
+                    }
+                  %>
+                  <p class="mb-0">Payment Status: 
+                    <span class="badge bg-<%= displayPaymentStatus === 'Paid' ? 'success' : 'warning' %>">
+                      <%= displayPaymentStatus %>
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <a href="/order/<%= order._id %>" class="btn btn-primary">View Details</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <div class="alert alert-info">
+          <p class="mb-0">You haven't placed any orders yet.</p>
+          <a href="/shopPage" class="btn btn-primary mt-3">Start Shopping</a>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Ensure each product box has a consistent fixed height */
+  .product-box {
+    height: 220px; /* Adjust this height as needed */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    
+
+  }
+
+  .card-header {
+  background-color: #f8f9fa;
+  margin-bottom: 15px; /* Adjust spacing as needed */
+}
+</style>
+
+<%- include("../../views/partials/user/footer") %>

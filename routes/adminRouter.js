@@ -21,6 +21,7 @@ const router = express.Router();
 const adminController = require('../controllers/admin/adminController');
 const customerController = require('../controllers/admin/customerController')
 const categoryController = require('../controllers/admin/categoryController')
+const orderController = require('../controllers/admin/orderController');
 const productController = require('../controllers/admin/productController')
 const auth=require('../middleware/admin/auth')
 
@@ -57,6 +58,12 @@ router.post('/blockProduct',auth.admincheckSession, productController.blockProdu
 router.post('/unblockProduct',auth.admincheckSession, productController.unblockProduct);
 router.get('/editProduct/:id', auth.admincheckSession, productController.getEditProduct);
 router.post('/editProduct/:id', auth.admincheckSession, uploads.array('images', 4), productController.editProduct);
+
+
+router.get('/orders', auth.admincheckSession, orderController.listOrders);
+router.get('/order/:id', auth.admincheckSession, orderController.viewOrderDetails);
+router.post('/update-order-status', auth.admincheckSession, orderController.updateOrderStatus);
+router.post('/verify-return-request', auth.admincheckSession, orderController.verifyReturnRequest);
 
 
 module.exports =router;

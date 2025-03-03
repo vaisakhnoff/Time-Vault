@@ -1,0 +1,279 @@
+<!-- Start Banner Area -->
+<section class="banner-area organic-breadcrumb">
+  <div class="container">
+    <div class="breadcrumb-banner d-flex flex-wrap align-items-center justify-content-end">
+      <div class="col-first">
+        <h1>Shopping Cart</h1>
+        <nav class="d-flex align-items-center">
+          <a href="index.html">Home<span class="lnr lnr-arrow-right"></span></a>
+          <a href="category.html">Cart</a>
+        </nav>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- End Banner Area -->
+
+<!-- Include Header -->
+<%- include("../../views/partials/user/header") %>
+
+<!-- Custom CSS for Styling and Responsiveness -->
+<style>
+  .remove-btn {
+    background-color: #ff0000;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .remove-btn:hover {
+    background-color: #cc0000;
+  }
+  .product_count {
+    display: inline-flex;
+    align-items: center;
+  }
+  .product_count input {
+    width: 50px;
+    text-align: center;
+    margin: 0 5px;
+  }
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .cart_inner table {
+      display: block;
+      width: 100%;
+    }
+    .cart_inner thead {
+      display: none;
+    }
+    .cart_inner tbody tr {
+      display: block;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ddd;
+    }
+    .cart_inner td {
+      display: block;
+      text-align: right;
+      position: relative;
+      padding-left: 50%;
+      padding-right: 10px;
+    }
+    .cart_inner td::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 10px;
+      width: 45%;
+      padding-right: 10px;
+      font-weight: bold;
+      text-align: left;
+    }
+    .cart_inner td[data-label="Actions"] {
+      text-align: center;
+      padding-left: 0;
+    }
+    .cart_inner td[data-label="Actions"]::before {
+      display: none;
+    }
+    .bottom_button td, .out_button_area td {
+      padding-left: 0;
+    }
+    .bottom_button td::before, .out_button_area td::before {
+      display: none;
+    }
+  }
+</style>
+
+<!-- Cart Area -->
+<section class="cart_area">
+  <div class="container">
+    <div class="cart_inner">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Product</th>
+              <th scope="col">Price</th>
+              <th scope="col">Quantity</th>
+              <th scope="col">Total</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (cart && cart.items && cart.items.length > 0) { %>
+              <% cart.items.forEach(function(item) { %>
+                <tr data-product-id="<%= item.productId._id %>">
+                  <td data-label="Product">
+                    <div class="media">
+                      <div class="d-flex">
+                        <% if (item.productId && item.productId.productImage && item.productId.productImage.length > 0) { %>
+                          <img src="/uploads/product-images/<%= item.productId.productImage[0] %>" alt="<%= item.productId.productName %>" style="max-width: 100px;">
+                        <% } else { %>
+                          <p>No image available</p>
+                        <% } %>
+                      </div>
+                      <div class="media-body">
+                        <p><%= item.productId.productName %></p>
+                      </div>
+                    </div>
+                  </td>
+                  <td data-label="Price">
+                    <h5>$<%= item.price.toFixed(2) %></h5>
+                  </td>
+                  <td data-label="Quantity">
+                    <div class="product_count">
+                      <button class="reduced items-count" type="button">-</button>
+                      <input type="text" name="qty" class="input-text qty" value="<%= item.quantity %>" readonly>
+                      <button class="increase items-count" type="button">+</button>
+                    </div>
+                  </td>
+                  <td data-label="Total">
+                    <h5 class="item-total">$<%= (item.price * item.quantity).toFixed(2) %></h5>
+                  </td>
+                  <td data-label="Actions">
+                    <form method="post" action="/removeFromCart" style="display: inline;">
+                      <input type="hidden" name="productId" value="<%= item.productId._id %>">
+                      <button type="submit" class="remove-btn" onclick="return confirm('Are you sure you want to remove this item?')">
+                        Remove
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+              <!-- Cart Actions -->
+              <tr class="bottom_button">
+                <td>
+                  <a class="gray_btn" href="#" id="update-cart">Update Cart</a>
+                </td>
+                <td></td>
+                <td></td>
+                <td>
+                  <div class="cupon_text d-flex align-items-center">
+                    <input type="text" id="coupon-code" placeholder="Coupon Code">
+                    <a class="primary-btn" href="#" id="apply-coupon">Apply</a>
+                  </div>
+                </td>
+                <td></td>
+              </tr>
+              <!-- Subtotal -->
+              <tr>
+                <td></td>
+                <td></td>
+                <td>
+                  <h5>Subtotal</h5>
+                </td>
+                <td>
+                  <h5 id="subtotal">$<%= cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2) %></h5>
+                </td>
+                <td></td>
+              </tr>
+              <!-- Checkout Buttons -->
+              <tr class="out_button_area">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>
+                  <div class="checkout_btn_inner d-flex align-items-center">
+                    <a class="gray_btn" href="#">Continue Shopping</a>
+                    <a class="primary-btn" href="/checkoutPage">Proceed to Checkout</a>
+                  </div>
+                </td>
+                <td></td>
+              </tr>
+            <% } else { %>
+              <tr>
+                <td colspan="5" style="text-align: center;">Your cart is empty.</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- End Cart Area -->
+
+<!-- Include Footer -->
+<%- include("../../views/partials/user/footer") %>
+
+<!-- SweetAlert CDN -->
+<script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+
+<!-- JavaScript for Dynamic Functionality -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const updateSubtotal = () => {
+      let subtotal = 0;
+      document.querySelectorAll('.item-total').forEach(total => {
+        subtotal += parseFloat(total.textContent.replace('$', ''));
+      });
+      document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+    };
+  
+    // Quantity Increase
+    document.querySelectorAll('.increase').forEach(button => {
+      button.addEventListener('click', function() {
+        const row = this.closest('tr');
+        const qtyInput = row.querySelector('.qty');
+        let qty = parseInt(qtyInput.value);
+        if (qty < 4) {
+          qtyInput.value = qty + 1;
+          const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('$', ''));
+          row.querySelector('.item-total').textContent = `$${(price * (qty + 1)).toFixed(2)}`;
+          updateSubtotal();
+        } else {
+          swal({
+            title: "Maximum Quantity",
+            text: "The maximum quantity allowed is 4.",
+            icon: "info",
+            button: "OK"
+          });
+        }
+      });
+    });
+  
+    // Quantity Decrease
+    document.querySelectorAll('.reduced').forEach(button => {
+      button.addEventListener('click', function() {
+        const row = this.closest('tr');
+        const qtyInput = row.querySelector('.qty');
+        let qty = parseInt(qtyInput.value);
+        if (qty > 1) {
+          qtyInput.value = qty - 1;
+          const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('$', ''));
+          row.querySelector('.item-total').textContent = `$${(price * (qty - 1)).toFixed(2)}`;
+          updateSubtotal();
+        } else {
+          swal({
+            title: "Minimum Quantity",
+            text: "The minimum quantity allowed is 1.",
+            icon: "warning",
+            button: "OK"
+          });
+        }
+      });
+    });
+  
+    // Apply Coupon
+    document.getElementById('apply-coupon').addEventListener('click', function(e) {
+      e.preventDefault();
+      const code = document.getElementById('coupon-code').value;
+      let subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
+      if (code === 'DISCOUNT10') {
+        const discount = subtotal * 0.10;
+        subtotal -= discount;
+        document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+        alert('Coupon applied! 10% discount.');
+      } else {
+        alert('Invalid coupon code.');
+      }
+    });
+  
+    // Update Cart (Placeholder)
+    document.getElementById('update-cart').addEventListener('click', function(e) {
+      e.preventDefault();
+      alert('Cart updated! (Add server-side logic here)');
+    });
+  });
+  </script>
