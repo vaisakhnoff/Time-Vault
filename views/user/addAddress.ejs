@@ -53,7 +53,7 @@
     
     <div class="form-group">
       <label for="addressType">Address Type</label>
-      <input type="text" id="addressType" name="address[addressType]" class="form-control" required>
+      <input type="text" id="addressType" name="addressType" class="form-control" required>
     </div>
     
     <div class="form-group">
@@ -89,5 +89,25 @@
     <button type="submit" class="btn btn-primary">Add Address</button>
   </form>
 </div>
+
+<!-- Include SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const message = urlParams.get('message');
+    const status = urlParams.get('status');
+
+    if (message) {
+      Swal.fire({
+        icon: status === 'success' ? 'success' : 'error',
+        title: status === 'success' ? 'Success' : 'Error',
+        text: message,
+        confirmButtonText: 'OK'
+      });
+    }
+  });
+</script>
 
 <%- include("../../views/partials/user/footer") %>

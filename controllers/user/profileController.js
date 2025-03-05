@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const Address = require('../../models/addressSchema');
 const Order = require('../../models/orderSchema');
+const { log } = require('console');
 
 function generateOTP(){
     return Math.floor(100000 + Math.random()*900000).toString();
@@ -275,6 +276,7 @@ const userAddress = async(req,res)=>{
         
        
         const addresses = await Address.find({ userId: userId });
+        console.log("addresses:", addresses);
         
         // Render the userAddress page with the fetched addresses
         res.render('userAddress', {
@@ -306,46 +308,57 @@ const addAddressPage = async(req,res)=>{
 const addAddress = async (req, res) => {
   try {
     const userId = req.session.user;
-   
-    const { name, city, landMark, state, pincode, phone_no, altPhone_no } = req.body;
-    
-    const addressType = req.body.address ? req.body.address.addressType : null;
+    const userData = await User.findById(userId).lean(); 
 
-    const newAddress = new Address({
-      userId,
-      address: { addressType },
-      name,
-      city,
-      landMark,
-      state,
-      pincode,
-      phone_no,
-      altPhone_no
-    });
+    if (!userData) {
+      console.error("User not found!");
+      return res.redirect('/userAddress?message=User not found&status=failure');
+    }
 
-    await newAddress.save();
+    // Extract address details from request body
+    const { addressType, name, city, landMark, state, pincode, phone_no, altPhone_no } = req.body;
 
-    res.redirect('/userAddress?message=Address added successfully');
+    // Find user's existing address document
+    let userAddress = await Address.findOne({ userId });
+
+    if (!userAddress) {
+      // If no address exists, create a new one
+      userAddress = new Address({
+        userId,
+        address: [{ addressType, name, city, landMark, state, pincode, phone_no, altPhone_no }]
+      });
+    } else {
+      // If address exists, push new address to the array
+      userAddress.address.push({ addressType, name, city, landMark, state, pincode, phone_no, altPhone_no });
+    }
+
+    await userAddress.save(); // Save the updated address document
+
+    res.redirect('/userAddress?message=Address added successfully&status=success');
   } catch (error) {
     console.error('Error adding address:', error);
-    res.redirect('/pageNotFound');
+    res.redirect('/userAddress?message=Error adding address&status=failure');
   }
 };
 
-
 const editAddressPage = async (req, res) => {
   try {
-    // Get the address id from the posted form data
+    const userId = req.session.user;
     const addressId = req.body.addressId;
-    const addressData = await Address.findById(addressId).lean();
+
     
+    const addressDoc = await Address.findOne({ userId, "address._id": addressId }).lean();
+    if (!addressDoc) {
+      return res.redirect('/userAddress?message=Address not found');
+    }
+
+    // Extract the matching subdocument
+    const addressData = addressDoc.address.find(addr => addr._id.toString() === addressId);
     if (!addressData) {
       return res.redirect('/userAddress?message=Address not found');
     }
-    
-    res.render('editAddress', {
-      address: addressData
-    });
+
+    res.render('editAddress', { address: addressData });
   } catch (error) {
     console.error('Error fetching address for edit:', error);
     res.redirect('/pageNotFound');
@@ -354,40 +367,82 @@ const editAddressPage = async (req, res) => {
 
 const updateAddress = async (req, res) => {
     try {
-      const { addressId, name, city, landMark, state, pincode, phone_no, altPhone_no } = req.body;
-      const addressType = req.body.address ? req.body.address.addressType : null;
+      const userId = req.session.user;
+      const { addressType,addressId, name, city, landMark, state, pincode, phone_no, altPhone_no } = req.body;
+    //   const addressType = req.body.address ? req.body.address.addressType : null;
   
-      await Address.findByIdAndUpdate(addressId, {
-        name,
-        city,
-        landMark,
-        state,
-        pincode,
-        phone_no,
-        altPhone_no,
-        address: { addressType }
-      });
+      // Find the user's existing address
+      const existingUser = await Address.findOne({ userId, "address._id": addressId });
+      if (!existingUser) {
+        return res.json({ status: "failure", message: "Address not found" });
+      }
   
-      res.redirect('/userAddress?message=Address updated successfully');
+      const existingAddress = existingUser.address.find(addr => addr._id.toString() === addressId);
+      if (!existingAddress) {
+        return res.json({ status: "failure", message: "Address not found" });
+      }
+  
+      // Convert values to strings to avoid type mismatch issues
+      const isSame =
+        existingAddress.name === name &&
+        (existingAddress.addressType || "") === (addressType || "") &&
+        existingAddress.city === city &&
+        existingAddress.landMark === landMark &&
+        existingAddress.state === state &&
+        existingAddress.pincode === pincode &&
+        existingAddress.phone_no === phone_no &&
+        existingAddress.altPhone_no === altPhone_no;
+  
+      if (isSame) {
+        return res.json({ status: "failure", message: "No changes detected" });
+      }
+  
+      // Update the address if changes are detected
+      await Address.updateOne(
+        { userId, "address._id": addressId },
+        {
+          $set: {
+            "address.$.name": name,
+            "address.$.addressType": addressType,
+            "address.$.city": city,
+            "address.$.landMark": landMark,
+            "address.$.state": state,
+            "address.$.pincode": pincode,
+            "address.$.phone_no": phone_no,
+            "address.$.altPhone_no": altPhone_no
+          }
+        }
+      );
+  
+      res.json({ status: "success", message: "Address updated successfully" });
     } catch (error) {
-      console.error('Error updating address:', error);
-      res.redirect('/pageNotFound');
+      console.error("Error updating address:", error);
+      res.json({ status: "failure", message: "Error updating address" });
     }
   };
+  
+  
 
-const deleteAddress = async (req, res) => {
-  try {
-    const addressId = req.body.addressId;
-    if (!addressId) {
-      return res.redirect('/userAddress?message=Address not found');
+  const deleteAddress = async (req, res) => {
+    try {
+      const userId = req.session.user;
+      const { addressId } = req.body;
+      if (!addressId) {
+        return res.json({ status: "failure", message: "Address not found" });
+      }
+      
+      await Address.updateOne(
+        { userId },
+        { $pull: { address: { _id: addressId } } }
+      );
+      
+      res.json({ status: "success", message: "Address deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      res.json({ status: "failure", message: "Error deleting address" });
     }
-    await Address.findByIdAndDelete(addressId);
-    res.redirect('/userAddress?message=Address deleted successfully');
-  } catch (error) {
-    console.error('Error deleting address:', error);
-    res.redirect('/pageNotFound');
-  }
-};
+  };
+  
 
 const userOrders = async (req, res) => {
   try {

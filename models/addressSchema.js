@@ -7,11 +7,10 @@ const addressSchema = new Schema({
         ref:'user',
         required:true
     },
-    address:{
+    address:[{
         addressType:{
             type:String,
             required:true
-        }
     },
     name:{
         type:String,
@@ -40,7 +39,8 @@ const addressSchema = new Schema({
     altPhone_no:{
         type:Number,
         required:true
-    },
+    }
+}]
 })
 
 const address = mongoose.model('address',addressSchema); 

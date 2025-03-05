@@ -45,7 +45,9 @@
 
 <div class="container address-form-container">
   <h3>Edit Address</h3>
-    <form method="post" action="/updateAddress">
+    <!-- <form method="post" action="/updateAddress"> -->
+      <form id="updateAddressForm">
+
     <input type="hidden" name="addressId" value="<%= address._id %>">
     
     <div class="form-group">
@@ -64,9 +66,9 @@
       <input 
         type="text" 
         id="addressType" 
-        name="address[addressType]" 
+        name="addressType" 
         class="form-control" 
-        value="<%= address.address.addressType %>" 
+        value="<%= address.addressType %>" 
         required>
     </div>
     
@@ -107,7 +109,7 @@
     <div class="form-group">
       <label for="pincode">Pincode</label>
       <input 
-        type="number" 
+        type="text" 
         id="pincode" 
         name="pincode" 
         class="form-control" 
@@ -118,7 +120,7 @@
     <div class="form-group">
       <label for="phone_no">Phone Number</label>
       <input 
-        type="number" 
+        type="text" 
         id="phone_no" 
         name="phone_no" 
         class="form-control" 
@@ -129,7 +131,7 @@
     <div class="form-group">
       <label for="altPhone_no">Alternative Phone Number</label>
       <input 
-        type="number" 
+        type="text" 
         id="altPhone_no" 
         name="altPhone_no" 
         class="form-control" 
@@ -140,5 +142,47 @@
     <button type="submit" class="btn btn-primary">Update Address</button>
   </form>
 </div>
+
+<!-- Include SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+  document.getElementById('updateAddressForm').addEventListener('submit', async function(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    const formData = new FormData(this);
+    const formObject = Object.fromEntries(formData.entries());
+
+    try {
+      const response = await fetch('/updateAddress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formObject)
+      });
+
+      const result = await response.json();
+
+      Swal.fire({
+        icon: result.status === 'success' ? 'success' : 'error',
+        title: result.status === 'success' ? 'Success' : 'Error',
+        text: result.message,
+        confirmButtonText: 'OK'
+      }).then(() => {
+        if (result.status === 'success') {
+          window.location.href = '/userAddress'; // Redirect on success
+        }
+      });
+
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Something went wrong. Please try again.',
+        confirmButtonText: 'OK'
+      });
+    }
+  });
+</script>
+
 
 <%- include("../../views/partials/user/footer") %>
