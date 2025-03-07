@@ -57,8 +57,11 @@ router.post('/addToCart', auth.checkSession, cartController.addToCart);
 router.post('/removeFromCart', auth.checkSession, cartController.removeFromCart);
 router.post('/updateCart', auth.checkSession, cartController.updateCart);
 
+
+
 router.get('/wishlist',auth.checkSession,wishlistController.wishlist);
 router.post('/addWishlist',wishlistController.addWishlist)
+// router.post('/removeFromWishlist',wishlistController.removeFromWishlist)
 
 
 

@@ -65,25 +65,27 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    
     function addToCart(productId) {
-        fetch('/add-to-cart', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ productId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            Swal.fire({
-                icon: data.success ? 'success' : 'error',
-                title: data.success ? 'Success' : 'Error',
-                text: data.message || (data.success ? 'Product added to cart!' : 'Something went wrong')
-            });
-        })
-        .catch(() => Swal.fire('Error', 'Something went wrong', 'error'));
-    }
+    fetch('/addToCart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: productId, fromWishlist: true })
+    })
+    .then(response => response.json())
+    .then(data => {
+        Swal.fire({
+            icon: data.success ? 'success' : 'error',
+            title: data.success ? 'Success' : 'Error',
+            text: data.message || (data.success ? 'Product added to cart!' : 'Something went wrong')
+        }).then(() => { if (data.success) location.reload(); });
+    })
+    .catch(() => Swal.fire('Error', 'Something went wrong', 'error'));
+}
+
 
     function removeFromWishlist(productId) {
-        fetch('/remove-from-wishlist', {
+        fetch('/removeFromWishlist', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ productId })

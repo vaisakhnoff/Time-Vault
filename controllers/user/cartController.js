@@ -4,6 +4,7 @@ const User = require("../../models/userschema");
 const Cart = require('../../models/cartSchema');
 const Address = require('../../models/addressSchema'); 
 const Order = require('../../models/orderSchema.js');
+const Wishlist = require('../../models/wishlistSchema');
 
 const cartPage = async (req, res) => {
   try {
@@ -25,15 +26,18 @@ const cartPage = async (req, res) => {
   } 
 };
 
+
 const addToCart = async (req, res) => {
   try {
-    
     const userId = req.session.user;
     const productId = req.body.id;
     const quantity = parseInt(req.body.quantity) || 1;
-    if (!req.session.user) {
+    const fromWishlist = req.body.fromWishlist; // New flag
+
+    if (!userId) {
       return res.status(401).json({ success: false, message: 'User not authenticated' });
-  }
+    }
+    
     const product = await Product.findById(productId).lean();
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
@@ -86,12 +90,22 @@ const addToCart = async (req, res) => {
     }
 
     await cart.save();
+
+    // If the request comes from the wishlist, remove the product from wishlist
+    if (fromWishlist) {
+      await Wishlist.findOneAndUpdate(
+        { userId },
+        { $pull: { products: { productId: productId } } }
+      );
+    }
+
     res.json({ success: true, message: 'Product added to cart successfully' });
   } catch (error) {
     console.error('Error adding to cart:', error);
     res.status(500).json({ success: false, message: 'Error adding item to cart' });
   }
 };
+
 
 const removeFromCart = async (req, res) => {
   try {
