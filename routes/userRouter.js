@@ -7,6 +7,7 @@ const productController = require('../controllers/user/productController')
 const profileController = require('../controllers/user/profileController')
 const cartController = require('../controllers/user/cartController')
 const orderController = require('../controllers/user/orderController')
+const wishlistController = require('../controllers/user/wishlistController');
 
 router.get('/',userController.loadHomepage)
 router.get('/pageNotFound',userController.pageNotFound)
@@ -54,6 +55,10 @@ router.post('/submitReview', auth.checkSession, orderController.submitReview);
 router.get('/cartPage',auth.checkSession,cartController.cartPage)
 router.post('/add-to-cart/:id', auth.checkSession, cartController.addToCart);
 router.post('/removeFromCart', auth.checkSession, cartController.removeFromCart);
+
+router.get('/wishlist',auth.checkSession,wishlistController.wishlist);
+router.post('/addWishlist',wishlistController.addWishlist)
+
 
 
 router.get('/checkoutPage',auth.checkSession,cartController.checkoutPage);

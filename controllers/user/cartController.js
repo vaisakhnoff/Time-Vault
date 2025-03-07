@@ -127,6 +127,10 @@ const checkoutPage = async (req, res) => {
     
   
     const addressData = await Address.find({ userId: userId }).lean();
+    console.log(addressData);
+    
+
+    
     console.log("addressData:", addressData);
 
  
@@ -137,8 +141,9 @@ const checkoutPage = async (req, res) => {
     res.render('checkoutPage', {
       user: userData,
       cart: cart || { items: [] },
-      address: addressData
+      address: addressData.length > 0 ? addressData[0].address : []
     });
+    
   } catch (error) {
     console.error('Error retrieving cart data:', error);
     res.redirect('/pageNotFound');
@@ -150,21 +155,25 @@ const placeOrder = async (req, res) => {
   try {
     const userId = req.session.user;
     const { addressId, paymentMethod } = req.body;
-    
+
     const cart = await Cart.findOne({ userId }).populate('items.productId');
     if (!cart || !cart.items.length) {
       return res.status(400).json({ message: 'Cart is empty' });
     }
-    
-    const addressData = await Address.findById(addressId);
-    if (!addressData) {
+
+    // Fix: Find the address inside the embedded array
+    const addressDoc = await Address.findOne({ "address._id": addressId });
+    if (!addressDoc) {
       return res.status(400).json({ message: 'Invalid address' });
     }
-    
+
+    // Extract the specific address
+    const selectedAddress = addressDoc.address.find(addr => addr._id.toString() === addressId);
+
     const totalAmount = cart.items.reduce((total, item) => {
-      return total + (item.productId.salePrice * item.quantity);
+      return total + item.productId.salePrice * item.quantity;
     }, 0);
-    
+
     const order = new Order({
       user: userId,
       items: cart.items.map(item => ({
@@ -173,27 +182,26 @@ const placeOrder = async (req, res) => {
         price: item.productId.salePrice,
         totalPrice: item.productId.salePrice * item.quantity
       })),
-      address: addressId,
+      address: selectedAddress, // Use the extracted address
       paymentMethod,
       totalAmount,
       orderStatus: 'Pending',
       paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Processing'
     });
-    
+
     await order.save();
-    
+
     // Decrease each product's quantity by the purchased amount
     for (const item of cart.items) {
       await Product.findByIdAndUpdate(item.productId._id, { $inc: { quantity: -item.quantity } });
     }
-    
+
     cart.items = [];
     await cart.save();
-    
+
     if (paymentMethod === 'COD') {
       return res.redirect('/orderSuccess');
     } else {
-      // Implement your payment gateway integration here
       return res.redirect('/payment');
     }
   } catch (error) {

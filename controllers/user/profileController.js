@@ -276,7 +276,7 @@ const userAddress = async(req,res)=>{
         
        
         const addresses = await Address.find({ userId: userId });
-        console.log("addresses:", addresses);
+      
         
         // Render the userAddress page with the fetched addresses
         res.render('userAddress', {

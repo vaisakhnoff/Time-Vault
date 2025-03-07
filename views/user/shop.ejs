@@ -1,4 +1,44 @@
 <style>
+	.p_icon form,
+.p_icon a {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    border-radius: 50%; /* Ensures a perfect circle */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    color: #222;
+    transition: transform 0.3s, background 0.3s;
+    text-decoration: none;
+    border: none;
+    overflow: hidden; /* Prevents any overflow if an image was present */
+}
+
+.p_icon form:hover button,
+.p_icon a:hover {
+    background: #ff0000;
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.p_icon form button {
+    position: relative;
+    z-index: 3;
+    background: none;
+    border: none;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    font-size: 18px; /* Increase icon size for visibility */
+}
+
+.p_icon form button .ti-shopping-cart {
+    transition: color 0.3s ease;
+}
 		.single-product {
 			margin-bottom: 30px;
 			transition: all 0.3s;
@@ -20,36 +60,23 @@
 
 		.p_icon {
 			position: absolute;
-			bottom: -20px;
+			bottom: -10px;
 			left: 0;
 			right: 0;
 			display: flex;
 			justify-content: center;
-			gap: 10px;
+			align-items: center;
+			gap: 15px;
 			opacity: 0;
-			transition: all 0.3s;
+			transition: all 0.3s ease;
 		}
 
-		.p_icon a {
-			width: 40px;
-			height: 40px;
-			line-height: 40px;
-			text-align: center;
-			background: #fff;
-			border-radius: 50%;
-			box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-			color: #222;
-			transition: all 0.3s;
-		}
+		
 
-		.p_icon a:hover {
-			background: #ff0000;
-			color: #fff;
-			transform: scale(1.1);
-		}
+		
 
 		.single-product:hover .p_icon {
-			bottom: 20px;
+			bottom: 30px;
 			opacity: 1;
 		}
 
@@ -173,6 +200,7 @@
 			color: #666;
 		}
 	</style>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body id="category">
@@ -318,14 +346,16 @@
                                  alt="<%= product.productName %>"
                                  onerror="this.src='/img/no-image.jpg'"
                                  style="height: 255px; object-fit: cover;">
-                            <div class="p_icon">
-                                <form method="post" action="/add-to-cart/<%= product._id %>" onclick="event.stopPropagation();">
-                                    <button type="submit" class="btn btn-primary"><i class="ti-shopping-cart"></i></button>
-                                </form>
-                                <a href="/add-to-wishlist/<%= product._id %>" onclick="event.stopPropagation();">
-                                    <i class="ti-heart"></i>
-                                </a>
-                            </div>
+								 <div class="p_icon">
+									<form method="post" action="/add-to-cart/<%= product._id %>" onclick="event.stopPropagation();">
+										<button type="submit" class="btn btn-cart">
+											<i class="ti-shopping-cart"></i>
+										</button>
+									</form>
+									<a href="#" onclick="event.preventDefault(); addToWishlist('<%= product._id %>');">
+										<i class="ti-heart"></i>
+									</a>
+								</div>
                         </div>
                         <div class="product-btm">
                             <h4><%= product.productName %></h4>
@@ -483,6 +513,30 @@ document.querySelectorAll('input[name="sort"]').forEach(radio => {
         document.getElementById('filterForm').submit();
     });
 });
+
+
+function addToWishlist(productId) {
+    fetch('/addWishlist', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: productId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire("Success", data.message, "success");
+        } else {
+            Swal.fire("Alert", data.message, "warning");
+        }
+    })
+    .catch(error => {
+        Swal.fire("Error", "Something went wrong", "error");
+    });
+	
+}
+
 </script>
 
 	<script src="js/vendor/jquery-2.2.4.min.js"></script>

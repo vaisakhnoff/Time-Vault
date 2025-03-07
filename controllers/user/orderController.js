@@ -7,21 +7,33 @@ const viewOrderDetails = async (req, res) => {
     const orderId = req.params.id;
     const userId = req.session.user;
 
+    // Get the order and populate product details only.
     const order = await Order.findOne({ _id: orderId, user: userId })
-  .populate('items.productId')
-  .lean();
+      .populate('items.productId')
+      .lean();
 
-  const address = await Address.findOne({ userId: userId }).lean();
-
-  
     if (!order) {
       return res.redirect('/orders');
     }
 
+    // Fetch the Address document for the user instead of searching by addressId.
+    const addressDoc = await Address.findOne({ userId: userId }).lean();
+    let selectedAddress = null;
+    if (addressDoc && addressDoc.address && order.address) {
+      console.log("Order address value:", order.address.toString());
+      console.log("User Addresses:", addressDoc.address.map(addr => addr._id.toString()));
+      selectedAddress = addressDoc.address.find(addr =>
+        addr._id.toString() === order.address.toString()
+      );
+    }
+
+    console.log("Selected Address:", selectedAddress); // Debugging line
+    
+
     res.render('orderDetails', {
       user: req.session.user,
       order: order,
-      address:address,
+      address: selectedAddress,
     });
   } catch (error) {
     console.error('Error viewing order details:', error);
