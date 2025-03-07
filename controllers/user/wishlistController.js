@@ -25,10 +25,11 @@ const wishlist = async(req,res)=>{
 
 const addWishlist = async (req, res) => {
     try {
+        if (!req.session.user) {
+            return res.status(401).json({ success: false, message: 'User not authenticated' });
+        }
+        const id = req.body.id; // Extract id from request body
         console.log("User ID:", req.session.user);
-        const { id } = req.body;
-        console.log("Product ID:", id);
-
         if (!id) {
             return res.status(400).send("Product id is required");
         }

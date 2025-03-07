@@ -46,7 +46,7 @@
 		</div>
 	</section>
 	<!-- End banner Area -->
-
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	<!-- start features Area -->
 	<section class="features-area section_gap">
 		<div class="container">
@@ -189,14 +189,27 @@
                                     <a href="/productDetails?id=<%= product._id %>">
                                         <i class="ti-eye"></i>
                                     </a>
-                                    <form method="post" action="/add-to-cart/<%= product._id %>" style="display: inline;">
+                                    <!-- <form method="post" action="/add-to-cart/<%= product._id %>" style="display: inline;">
                                         <button type="submit" class="btn btn-link p-0">
                                             <i class="ti-shopping-cart"></i>
                                         </button>
-                                    </form>
-                                    <a href="/add-to-wishlist/<%= product._id %>">
+                                    </form> -->
+
+									<a href="#" onclick="event.preventDefault(); addToCart('<%= product._id %>')"> 
+										<i class="ti-shopping-cart"></i>
+									  </a>
+
+
+                                    <!-- <a href="/add-to-wishlist/<%= product._id %>">
                                         <i class="ti-heart"></i>
-                                    </a>
+                                    </a> -->
+
+									
+									<a href="#" onclick="event.preventDefault(); addToWishlist('<%= product._id %>');">
+										<i class="ti-heart"></i>
+									</a>
+
+
                                 </div>
                             </div>
                             <div class="product-btm">
@@ -332,6 +345,53 @@
  
 <!-- Footer Section Begin -->
  <%-include("../../views/partials/user/footer")%>
+
+ <script>
+
+
+	function addToWishlist(productId) {
+    fetch('/addWishlist', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: productId }) // Make sure id is properly sent
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire("Success", data.message, "success");
+        } else {
+            Swal.fire("Alert", data.message, "warning");
+        }
+    })
+    .catch(error => {
+        Swal.fire("Error", "Something went wrong", "error");
+    });
+	
+}
+function addToCart(productId) {
+    fetch('/addToCart', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: productId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire("Success", data.message, "success");
+        } else {
+            Swal.fire("Alert", data.message, "warning");
+        }
+    })
+    .catch(error => {
+        Swal.fire("Error", "Something went wrong", "error");
+    });
+	
+}
+ </script>
 
 <style>
 .single-product {

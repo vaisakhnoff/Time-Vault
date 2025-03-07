@@ -102,8 +102,7 @@
 			color: #777;
 			margin-left: 10px;
 		}
-			color: inherit;
-		}
+		
 
 		.single-product {
 			cursor: pointer;
@@ -347,14 +346,23 @@
                                  onerror="this.src='/img/no-image.jpg'"
                                  style="height: 255px; object-fit: cover;">
 								 <div class="p_icon">
-									<form method="post" action="/add-to-cart/<%= product._id %>" onclick="event.stopPropagation();">
+									<!-- <form method="post" action="/add-to-cart/<%= product._id %>" onclick="event.stopPropagation();">
 										<button type="submit" class="btn btn-cart">
 											<i class="ti-shopping-cart"></i>
 										</button>
-									</form>
+									</form> -->
+
+                                  <a href="#" onclick="event.preventDefault(); addToCart('<%= product._id %>')"> 
+									<i class="ti-shopping-cart"></i>
+								  </a>
+
+
 									<a href="#" onclick="event.preventDefault(); addToWishlist('<%= product._id %>');">
 										<i class="ti-heart"></i>
 									</a>
+
+
+
 								</div>
                         </div>
                         <div class="product-btm">
@@ -517,6 +525,27 @@ document.querySelectorAll('input[name="sort"]').forEach(radio => {
 
 function addToWishlist(productId) {
     fetch('/addWishlist', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: productId }) // Make sure id is properly sent
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire("Success", data.message, "success");
+        } else {
+            Swal.fire("Alert", data.message, "warning");
+        }
+    })
+    .catch(error => {
+        Swal.fire("Error", "Something went wrong", "error");
+    });
+	
+}
+function addToCart(productId) {
+    fetch('/addToCart', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

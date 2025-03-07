@@ -18,7 +18,11 @@ const viewOrderDetails = async (req, res) => {
 
     // Fetch the Address document for the user instead of searching by addressId.
     const addressDoc = await Address.findOne({ userId: userId }).lean();
+console.log("1",addressDoc); // Debugging line
+
     let selectedAddress = null;
+
+
     if (addressDoc && addressDoc.address && order.address) {
       console.log("Order address value:", order.address.toString());
       console.log("User Addresses:", addressDoc.address.map(addr => addr._id.toString()));

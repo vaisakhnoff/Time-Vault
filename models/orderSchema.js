@@ -29,14 +29,19 @@ const orderSchema = new mongoose.Schema({
         }
       }
     ],
+    // address: {
+    //   name: String,
+    //   city: String,
+    //   landMark: String,
+    //   state: String,
+    //   pincode: String,
+    //   phone_no: String,
+    //   altPhone_no: String
+    // }
     address: {
-      name: String,
-      city: String,
-      landMark: String,
-      state: String,
-      pincode: String,
-      phone_no: String,
-      altPhone_no: String
+      type: Schema.Types.ObjectId,
+      ref: 'address',
+      required: true
     },
     paymentMethod: {
       type: String,

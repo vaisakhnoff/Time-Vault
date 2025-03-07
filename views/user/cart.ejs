@@ -203,77 +203,111 @@
 <!-- JavaScript for Dynamic Functionality -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const updateSubtotal = () => {
-      let subtotal = 0;
-      document.querySelectorAll('.item-total').forEach(total => {
-        subtotal += parseFloat(total.textContent.replace('$', ''));
-      });
-      document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-    };
-  
-    // Quantity Increase
-    document.querySelectorAll('.increase').forEach(button => {
-      button.addEventListener('click', function() {
-        const row = this.closest('tr');
-        const qtyInput = row.querySelector('.qty');
-        let qty = parseInt(qtyInput.value);
-        if (qty < 4) {
-          qtyInput.value = qty + 1;
-          const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('$', ''));
-          row.querySelector('.item-total').textContent = `$${(price * (qty + 1)).toFixed(2)}`;
-          updateSubtotal();
-        } else {
-          swal({
-            title: "Maximum Quantity",
-            text: "The maximum quantity allowed is 4.",
-            icon: "info",
-            button: "OK"
-          });
-        }
-      });
+  const updateSubtotal = () => {
+    let subtotal = 0;
+    document.querySelectorAll('.item-total').forEach(total => {
+      subtotal += parseFloat(total.textContent.replace('$', ''));
     });
-  
-    // Quantity Decrease
-    document.querySelectorAll('.reduced').forEach(button => {
-      button.addEventListener('click', function() {
-        const row = this.closest('tr');
-        const qtyInput = row.querySelector('.qty');
-        let qty = parseInt(qtyInput.value);
-        if (qty > 1) {
-          qtyInput.value = qty - 1;
-          const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('$', ''));
-          row.querySelector('.item-total').textContent = `$${(price * (qty - 1)).toFixed(2)}`;
-          updateSubtotal();
-        } else {
-          swal({
-            title: "Minimum Quantity",
-            text: "The minimum quantity allowed is 1.",
-            icon: "warning",
-            button: "OK"
-          });
-        }
-      });
+    document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+  };
+
+  // Function to update the cart in the database
+  const updateCartItem = (productId, quantity) => {
+    fetch('/updateCart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: [{ productId, quantity }] })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (!data.success) {
+        swal("Error", data.message || "Failed to update cart", "error");
+      }
+    })
+    .catch(error => {
+      console.error('Error updating cart:', error);
+      swal("Error", "An error occurred while updating your cart.", "error");
     });
-  
-    // Apply Coupon
-    document.getElementById('apply-coupon').addEventListener('click', function(e) {
-      e.preventDefault();
-      const code = document.getElementById('coupon-code').value;
-      let subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
-      if (code === 'DISCOUNT10') {
-        const discount = subtotal * 0.10;
-        subtotal -= discount;
-        document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-        alert('Coupon applied! 10% discount.');
+  };
+
+  // Quantity Increase
+  document.querySelectorAll('.increase').forEach(button => {
+    button.addEventListener('click', function() {
+      const row = this.closest('tr');
+      const qtyInput = row.querySelector('.qty');
+      const productId = row.getAttribute('data-product-id');
+      let qty = parseInt(qtyInput.value);
+      if (qty < 4) {
+        qtyInput.value = qty + 1;
+        const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('$', ''));
+        row.querySelector('.item-total').textContent = `$${(price * (qty + 1)).toFixed(2)}`;
+        updateSubtotal();
+        updateCartItem(productId, qty + 1); // Sync with database
       } else {
-        alert('Invalid coupon code.');
+        swal("Maximum Quantity", "The maximum quantity allowed is 4.", "info");
       }
     });
-  
-    // Update Cart (Placeholder)
-    document.getElementById('update-cart').addEventListener('click', function(e) {
-      e.preventDefault();
-      alert('Cart updated! (Add server-side logic here)');
+  });
+
+  // Quantity Decrease
+  document.querySelectorAll('.reduced').forEach(button => {
+    button.addEventListener('click', function() {
+      const row = this.closest('tr');
+      const qtyInput = row.querySelector('.qty');
+      const productId = row.getAttribute('data-product-id');
+      let qty = parseInt(qtyInput.value);
+      if (qty > 1) {
+        qtyInput.value = qty - 1;
+        const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('$', ''));
+        row.querySelector('.item-total').textContent = `$${(price * (qty - 1)).toFixed(2)}`;
+        updateSubtotal();
+        updateCartItem(productId, qty - 1); // Sync with database
+      } else {
+        swal("Minimum Quantity", "The minimum quantity allowed is 1.", "warning");
+      }
     });
   });
+
+  // Update Cart Button (optional, for bulk updates)
+  document.getElementById('update-cart').addEventListener('click', function(e) {
+    e.preventDefault();
+    const cartItems = Array.from(document.querySelectorAll('tr[data-product-id]')).map(row => ({
+      productId: row.getAttribute('data-product-id'),
+      quantity: parseInt(row.querySelector('.qty').value)
+    }));
+    fetch('/updateCart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: cartItems })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        swal("Cart Updated", data.message, "success").then(() => {
+          window.location.reload();
+        });
+      } else {
+        swal("Oops!", data.message, "warning");
+      }
+    })
+    .catch(error => {
+      swal("Error", "An error occurred while updating your cart.", "error");
+    });
+  });
+
+  // Apply Coupon (unchanged)
+  document.getElementById('apply-coupon').addEventListener('click', function(e) {
+    e.preventDefault();
+    const code = document.getElementById('coupon-code').value;
+    let subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
+    if (code === 'DISCOUNT10') {
+      const discount = subtotal * 0.10;
+      subtotal -= discount;
+      document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+      alert('Coupon applied! 10% discount.');
+    } else {
+      alert('Invalid coupon code.');
+    }
+  });
+});
   </script>

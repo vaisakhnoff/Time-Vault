@@ -35,7 +35,7 @@
 		</div>
 	</section>
 	<!-- End Banner Area -->
-
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	<!--================Single Product Area =================-->
 	<%- include("../../views/partials/user/header") %>
 
@@ -206,22 +206,22 @@
 function addToCart(productId) {
     const quantity = parseInt(document.getElementById('sst').value);
 
-    // Validate quantity
-    if (isNaN(quantity) || quantity < 1) {
+    // Validate quantity: must be between 1 and 4 (inclusive)
+    if (quantity < 1 || quantity > 4) {
         Swal.fire({
             icon: 'error',
             title: 'Invalid Quantity',
-            text: 'Please enter a valid quantity'
+            text: 'Please enter a quantity between 1 and 4'
         });
         return;
     }
-
-    fetch(`/add-to-cart/${productId}`, {
+    
+    fetch(`/addToCart`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ quantity })
+        body: JSON.stringify({ id: productId, quantity })
     })
     .then(response => response.json())
     .then(data => {
@@ -254,12 +254,10 @@ function addToCart(productId) {
 
 
 function addToWishlist(productId) {
-    fetch('/add-to-wishlist', {
+    fetch(`/addWishlist`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ productId })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: productId })
     })
     .then(response => response.json())
     .then(data => {
@@ -285,7 +283,7 @@ function addToWishlist(productId) {
 function updateQuantity(action) {
     const input = document.getElementById('sst');
     const currentValue = parseInt(input.value);
-    const maxQuantity = <%= product.quantity %>;
+    const maxQuantity = parseInt('<%= product.quantity %>');
 
     if (action === 'increase' && currentValue < maxQuantity) {
         input.value = currentValue + 1;

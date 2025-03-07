@@ -53,8 +53,9 @@ router.post('/cancelOrder', auth.checkSession, orderController.cancelOrder);
 router.post('/submitReview', auth.checkSession, orderController.submitReview);
 
 router.get('/cartPage',auth.checkSession,cartController.cartPage)
-router.post('/add-to-cart/:id', auth.checkSession, cartController.addToCart);
+router.post('/addToCart', auth.checkSession, cartController.addToCart);
 router.post('/removeFromCart', auth.checkSession, cartController.removeFromCart);
+router.post('/updateCart', auth.checkSession, cartController.updateCart);
 
 router.get('/wishlist',auth.checkSession,wishlistController.wishlist);
 router.post('/addWishlist',wishlistController.addWishlist)
