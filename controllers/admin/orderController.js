@@ -1,7 +1,7 @@
 const Order = require('../../models/orderSchema');
 const user = require('../../models/userschema'); // 
 const Address = require('../../models/addressSchema');
-
+const WalletTransaction = require('../../models/walletSchema');
 const Product = require('../../models/productSchema');
 
 
@@ -75,33 +75,45 @@ const updateOrderStatus = async (req, res) => {
     const validStatuses = ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
     
     if (!validStatuses.includes(newStatus)) {
-      return res.json({ success: false, message: 'Invalid status' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid status',
+        icon: 'error'
+      });
     }
 
     const order = await Order.findById(orderId);
     if (!order) {
-      return res.json({ success: false, message: 'Order not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found',
+        icon: 'error'
+      });
     }
 
- 
     const finalStatuses = ['Delivered', 'Cancelled', 'Returned', 'Return Declined'];
     if (finalStatuses.includes(order.orderStatus)) {
-      return res.json({ success: false, message: 'Final order status reached. No further updates are allowed.' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Final order status reached. No further updates are allowed.',
+        icon: 'warning'
+      });
     }
 
-  
     const currentStatusIndex = validStatuses.indexOf(order.orderStatus);
     const newStatusIndex = validStatuses.indexOf(newStatus);
 
     if (newStatusIndex < currentStatusIndex) {
-      return res.json({ 
+      return res.status(400).json({ 
         success: false, 
-        message: 'Order status cannot be reversed to a previous state.' 
+        message: 'Order status cannot be reversed to a previous state.',
+        icon: 'warning'
       });
     } else if (newStatusIndex === currentStatusIndex) {
-      return res.json({ 
+      return res.status(400).json({ 
         success: false, 
-        message: 'Order is already in the selected status.' 
+        message: 'Order is already in the selected status.',
+        icon: 'info'
       });
     }
 
@@ -110,10 +122,18 @@ const updateOrderStatus = async (req, res) => {
     order.statusUpdates[newStatus] = new Date();
     await order.save();
 
-    res.json({ success: true, message: 'Order status updated successfully' });
+    res.json({ 
+      success: true, 
+      message: `Order status successfully updated to ${newStatus}`,
+      icon: 'success'
+    });
   } catch (error) {
     console.error('Error updating order status:', error);
-    res.json({ success: false, message: 'Error updating order status' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error updating order status',
+      icon: 'error'
+    });
   }
 };
 
@@ -121,40 +141,78 @@ const updateOrderStatus = async (req, res) => {
 const verifyReturnRequest = async (req, res) => {
   try {
     const { orderId, approve } = req.body;
-    // Populate the user details since we need to update the wallet.
-    const order = await Order.findById(orderId).populate('user');
-    if (!order)
-      return res.json({ success: false, message: 'Order not found' });
+    const order = await Order.findById(orderId)
+      .populate('user')
+      .populate('items.productId');
+      
+    if (!order) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found',
+        icon: 'error'
+      });
+    }
 
     if (approve === 'true' || approve === true) {
-      // Refund the amount to the user's wallet:
-      order.user.wallet = (order.user.wallet || 0) + order.totalAmount;
+      // Process return approval
+      for (const item of order.items) {
+        const product = item.productId;
+        if (product) {
+          product.quantity += item.quantity;
+          await product.save();
+        }
+      }
+
+      // Update user's wallet (refund)
+      const refundAmount = order.totalAmount;
+      order.user.wallet = (order.user.wallet || 0) + refundAmount;
       await order.user.save();
+
+      // Create a wallet transaction record for the refund
+      const walletTransaction = new WalletTransaction({
+        userId: order.user._id,
+        amount: refundAmount,
+        type: 'Credit',
+        description: `Refund for Order ${order._id}`
+      });
+      await walletTransaction.save();
 
       order.orderStatus = 'Returned';
       order.statusUpdates = order.statusUpdates || {};
       order.statusUpdates['Returned'] = new Date();
-
-      // Update return request details:
       order.returnRequest.status = 'Approved';
       order.returnRequest.processedAt = new Date();
 
       await order.save();
-      return res.json({ success: true, message: 'Return approved & amount refunded to wallet' });
+      
+      return res.json({ 
+        success: true, 
+        message: 'Return request approved. Amount refunded to wallet and stock restored.',
+        icon: 'success'
+      });
     } else {
+      // Process return decline
       order.orderStatus = 'Return Declined';
       order.statusUpdates = order.statusUpdates || {};
       order.statusUpdates['Return Declined'] = new Date();
-
       order.returnRequest.status = 'Declined';
       order.returnRequest.processedAt = new Date();
 
       await order.save();
-      return res.json({ success: true, message: 'Return request declined' });
+      
+      return res.json({ 
+        success: true, 
+        message: 'Return request has been declined',
+        icon: 'info'
+      });
     }
   } catch (error) {
     console.error('Error verifying return request:', error);
-    res.json({ success: false, message: 'Error verifying return request' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error processing return request',
+      icon: 'error'
+    });
   }
 };
 

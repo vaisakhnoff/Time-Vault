@@ -21,16 +21,21 @@
   <style>
     /* Wallet Balance Section */
     .wallet-balance {
-      background-color: #f7f7f7;
-      padding: 20px;
-      margin-bottom: 30px;
+      background-color: #fff;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      padding: 30px;
+      border-radius: 8px;
       text-align: center;
-      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .wallet-balance h3 {
+      color: #666;
+      margin-bottom: 15px;
     }
     .wallet-balance h2 {
-      margin: 0;
-      font-size: 2em;
       color: #333;
+      font-size: 2.5em;
+      margin: 0;
     }
     
     /* Transaction History Table */
@@ -99,18 +104,39 @@
         text-align: left;
       }
     }
+    .credit {
+      background-color: rgba(40, 167, 69, 0.1);
+    }
+    .debit {
+      background-color: rgba(220, 53, 69, 0.1);
+    }
+    .badge {
+      padding: 8px 12px;
+      border-radius: 4px;
+    }
   </style>
   
   <!-- Wallet Area -->
   <section class="wallet_area">
     <div class="container">
       <!-- Wallet Balance -->
-      <div class="wallet-balance">
-        <h2>Your Wallet Balance: $<%= wallet.balance.toFixed(2) %></h2>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="wallet-balance">
+            <h3>Main Balance</h3>
+            <h2>₹<%= wallet.balance.toFixed(2) %></h2>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="wallet-balance">
+            <h3>Referral Earnings</h3>
+            <h2>₹<%= wallet.referralEarnings.toFixed(2) %></h2>
+          </div>
+        </div>
       </div>
   
       <!-- Transaction History -->
-      <div class="transaction-history">
+      <div class="transaction-history mt-4">
         <h3>Transaction History</h3>
         <div class="table-responsive">
           <table class="table transaction-table">
@@ -125,16 +151,20 @@
             <tbody>
               <% if (transactions && transactions.length > 0) { %>
                 <% transactions.forEach(function(tx) { %>
-                  <tr>
-                    <td data-label="Date"><%= new Date(tx.date).toLocaleDateString() %></td>
+                  <tr class="<%= tx.type.toLowerCase() %>">
+                    <td data-label="Date"><%= new Date(tx.createdAt).toLocaleDateString() %></td>
                     <td data-label="Description"><%= tx.description %></td>
-                    <td data-label="Amount">$<%= tx.amount.toFixed(2) %></td>
-                    <td data-label="Type"><%= tx.type %></td>
+                    <td data-label="Amount">₹<%= tx.amount.toFixed(2) %></td>
+                    <td data-label="Type">
+                      <span class="badge <%= tx.type === 'Credit' ? 'bg-success' : 'bg-danger' %>">
+                        <%= tx.type %>
+                      </span>
+                    </td>
                   </tr>
                 <% }); %>
               <% } else { %>
                 <tr>
-                  <td colspan="4" style="text-align: center;">No transactions found.</td>
+                  <td colspan="4" class="text-center">No transactions found.</td>
                 </tr>
               <% } %>
             </tbody>
@@ -142,19 +172,20 @@
         </div>
   
         <!-- Pagination -->
-        <div class="pagination">
-          <% for(let i = 1; i <= pagination.totalPages; i++) { %>
-            <% if (i === pagination.currentPage) { %>
-              <span class="current-page"><%= i %></span>
-            <% } else { %>
-              <a href="/wallet?page=<%= i %>"><%= i %></a>
+        <% if (pagination.totalPages > 1) { %>
+          <div class="pagination">
+            <% for(let i = 1; i <= pagination.totalPages; i++) { %>
+              <% if (i === pagination.currentPage) { %>
+                <span class="current-page"><%= i %></span>
+              <% } else { %>
+                <a href="/wallet?page=<%= i %>"><%= i %></a>
+              <% } %>
             <% } %>
-          <% } %>
-        </div>
+          </div>
+        <% } %>
       </div>
     </div>
   </section>
   
   <!-- Include Footer -->
   <%- include("../../views/partials/user/footer") %>
-  

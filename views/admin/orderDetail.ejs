@@ -3,6 +3,7 @@
 <!-- Add in the head section -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+
 <div class="container mt-5">
   <h1>Order Details</h1>
   
@@ -127,51 +128,102 @@
 <%- include("../../views/partials/admin/footer") %>
 
 <!-- Add this before the closing body tag -->
+
 <script>
-document.getElementById('verifyReturnForm').addEventListener('submit', function(e) {
+
+const verifyReturnForm = document.getElementById('verifyReturnForm');
+if (verifyReturnForm) {
+  verifyReturnForm.addEventListener('submit', async function(e) {
     e.preventDefault();
-    
+
+    // ... rest of your code
     const form = e.target;
     const orderId = form.querySelector('input[name="orderId"]').value;
     const approve = e.submitter.value === 'true';
     
-    fetch('/admin/verify-return-request', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            orderId: orderId,
-            approve: approve
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        const response = await fetch('/admin/verify-return-request', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                orderId: orderId,
+                approve: approve
+            })
+        });
+
+        const data = await response.json();
+        
+        await Swal.fire({
+            icon: data.icon || 'error',
+            title: data.success ? 'Success' : 'Warning',
+            text: data.message,
+            confirmButtonText: 'OK'
+        });
+
         if (data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Success',
-                text: data.message,
-                showConfirmButton: true
-            }).then(() => {
-                // Reload the page to show updated status
-                window.location.reload();
-            });
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: data.message || 'Failed to process return request'
-            });
+            window.location.reload();
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error:', error);
         Swal.fire({
             icon: 'error',
             title: 'Error',
             text: 'Something went wrong while processing the return request'
         });
-    });
+    }
+
+
+
+  });
+}
+
+// document.getElementById('verifyReturnForm').addEventListener('submit', async function(e) {
+//     e.preventDefault();
+    
+    
+// });
+
+document.getElementById('updateStatusForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch('/admin/update-order-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                orderId: formData.get('orderId'),
+                newStatus: formData.get('newStatus')
+            })
+        });
+
+        const data = await response.json();
+        
+        await Swal.fire({
+            icon: data.icon || 'error',
+            title: data.success ? 'Success' : 'Warning',
+            text: data.message,
+            confirmButtonText: 'OK'
+        });
+
+        if (data.success) {
+            window.location.reload();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Something went wrong while updating the order status'
+        });
+    }
 });
 </script>

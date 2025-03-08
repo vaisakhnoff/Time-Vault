@@ -67,8 +67,9 @@ router.post('/addWishlist',wishlistController.addWishlist)
 router.get('/checkoutPage',auth.checkSession,cartController.checkoutPage);
 router.post('/placeOrder',auth.checkSession,cartController.placeOrder);
 router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
-//  router.post('/verify-return-request', auth.checkSession, orderController.verifyReturnRequest);
+
 
 router.get('/wallet',auth.checkSession,walletController.wallet);
+
 
 module.exports =router;

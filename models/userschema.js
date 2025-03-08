@@ -72,7 +72,7 @@ const userschema =  new Schema({
       },
       redeemedUsers:[{
         type:Schema.Types.ObjectId,
-        ref:'users',
+        ref:'user',
         // required:true
       }],
       searchHistory:[{

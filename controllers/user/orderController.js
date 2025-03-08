@@ -98,34 +98,7 @@ const cancelOrder = async (req, res) => {
 };
 
 
-// const verifyReturnRequest = async (req, res) => {
-//   try {
-//     const { orderId, approve } = req.body;
-//     const order = await Order.findById(orderId).populate('user');
-//     if (!order)
-//       return res.json({ success: false, message: 'Order not found' });
 
-//     // Refund is processed only if admin has approved the return request.
-//     if (approve === 'true' || approve === true) {
-//       order.user.wallet = (order.user.wallet || 0) + order.totalAmount;
-//       await order.user.save();
-//       order.orderStatus = 'Returned';
-//       order.statusUpdates = order.statusUpdates || {};
-//       order.statusUpdates['Returned'] = new Date();
-//       await order.save();
-//       return res.json({ success: true, message: 'Return approved & amount refunded to wallet' });
-//     } else {
-//       order.orderStatus = 'Return Declined';
-//       order.statusUpdates = order.statusUpdates || {};
-//       order.statusUpdates['Return Declined'] = new Date();
-//       await order.save();
-//       return res.json({ success: true, message: 'Return request declined' });
-//     }
-//   } catch (error) {
-//     console.error('Error verifying return request:', error);
-//     res.json({ success: false, message: 'Error verifying return request' });
-//   }
-// };
 
 const submitReview = async (req, res) => {
   try {
