@@ -68,7 +68,7 @@ const viewOrderDetails = async (req, res) => {
   }
 };
 
-// Update order status
+
 const updateOrderStatus = async (req, res) => {
   try {
     const { orderId, newStatus } = req.body;
@@ -121,21 +121,34 @@ const updateOrderStatus = async (req, res) => {
 const verifyReturnRequest = async (req, res) => {
   try {
     const { orderId, approve } = req.body;
+    // Populate the user details since we need to update the wallet.
     const order = await Order.findById(orderId).populate('user');
-    if (!order) return res.json({ success: false, message: 'Order not found' });
+    if (!order)
+      return res.json({ success: false, message: 'Order not found' });
 
     if (approve === 'true' || approve === true) {
+      // Refund the amount to the user's wallet:
       order.user.wallet = (order.user.wallet || 0) + order.totalAmount;
       await order.user.save();
+
       order.orderStatus = 'Returned';
       order.statusUpdates = order.statusUpdates || {};
       order.statusUpdates['Returned'] = new Date();
+
+      // Update return request details:
+      order.returnRequest.status = 'Approved';
+      order.returnRequest.processedAt = new Date();
+
       await order.save();
       return res.json({ success: true, message: 'Return approved & amount refunded to wallet' });
     } else {
       order.orderStatus = 'Return Declined';
       order.statusUpdates = order.statusUpdates || {};
       order.statusUpdates['Return Declined'] = new Date();
+
+      order.returnRequest.status = 'Declined';
+      order.returnRequest.processedAt = new Date();
+
       await order.save();
       return res.json({ success: true, message: 'Return request declined' });
     }
@@ -144,6 +157,7 @@ const verifyReturnRequest = async (req, res) => {
     res.json({ success: false, message: 'Error verifying return request' });
   }
 };
+
 
 module.exports = {
   listOrders,

@@ -45,11 +45,11 @@
 
 <div class="container address-form-container">
   <h3>Edit Address</h3>
-    <!-- <form method="post" action="/updateAddress"> -->
-      <form id="updateAddressForm">
-
+  <form id="updateAddressForm">
+    <!-- Hidden field for address ID and context -->
     <input type="hidden" name="addressId" value="<%= address._id %>">
-    
+    <input type="hidden" name="from" value="<%= typeof from !== 'undefined' ? from : '' %>">
+
     <div class="form-group">
       <label for="name">Name</label>
       <input 
@@ -72,7 +72,6 @@
         required>
     </div>
     
-    <!-- Additional fields for city, landMark, state, pincode, phone_no, altPhone_no -->
     <div class="form-group">
       <label for="city">City</label>
       <input 
@@ -169,7 +168,12 @@
         confirmButtonText: 'OK'
       }).then(() => {
         if (result.status === 'success') {
-          window.location.href = '/userAddress'; // Redirect on success
+          // Check the context and redirect accordingly
+          if (formObject.from === 'checkoutPage') {
+            window.location.href = '/checkoutPage';
+          } else {
+            window.location.href = '/userAddress';
+          }
         }
       });
 
@@ -183,6 +187,5 @@
     }
   });
 </script>
-
 
 <%- include("../../views/partials/user/footer") %>

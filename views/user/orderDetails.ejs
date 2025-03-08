@@ -1,7 +1,7 @@
 <%- include("../../views/partials/user/header") %>
 
 <!-- Spacer to create gap between header and contents -->
-<div style="height: 80px;"></div>
+<div style="height: 100px;"></div>
 
 <div class="container mt-5 mb-5">
   <div class="card">
@@ -9,7 +9,15 @@
       <div class="d-flex justify-content-between align-items-center">
         <h3>Order Details #<%= order._id %></h3>
         <div>
-          <% if (order.orderStatus !== 'Cancelled' && order.orderStatus !== 'Delivered') { %>
+          <% if (order.orderStatus === 'Delivered') { %>
+            <!-- Show Request Return button if order is delivered and not already requested -->
+            <% if (order.orderStatus !== 'Return Requested' && order.orderStatus !== 'Returned') { %>
+              <button class="btn btn-warning" onclick="requestReturn('<%= order._id %>')">
+                Request Return
+              </button>
+            <% } %>
+          <% } %>
+          <% if (order.orderStatus === 'Pending') { %>
             <form action="/cancelOrder" method="POST" class="d-inline">
               <input type="hidden" name="orderId" value="<%= order._id %>">
               <button type="submit" class="btn btn-danger" 
@@ -245,6 +253,30 @@
 function openReviewModal(productId) {
   document.getElementById('reviewProductId').value = productId;
   new bootstrap.Modal(document.getElementById('reviewModal')).show();
+}
+
+function requestReturn(orderId) {
+  // Optionally prompt the user for a reason
+  const reason = prompt("Please provide a reason for return (optional):", "");
+  fetch('/returnOrder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId, reason })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert(data.message);
+      // Optionally reload or redirect to update the order status on the page.
+      location.reload();
+    } else {
+      alert(data.message || 'Failed to request return');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error processing return request');
+  });
 }
 </script>
 

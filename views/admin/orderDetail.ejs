@@ -1,5 +1,8 @@
 <%- include("../../views/partials/admin/header") %>
 
+<!-- Add in the head section -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <div class="container mt-5">
   <h1>Order Details</h1>
   
@@ -64,22 +67,25 @@
       </form>
       
       <!-- Return Request Verification (if applicable) -->
-      <% if (order.orderStatus === 'Delivered' && order.returnRequest) { %>
-      <div class="mt-4">
-        <h6>Return Request</h6>
-        <p>
-          <strong>Reason: </strong> <%= order.returnRequest.reason %> <br>
-          <strong>Status: </strong> <%= order.returnRequest.status %>
-        </p>
-        <% if (order.returnRequest.status === 'Pending') { %>
+      <% if (order.orderStatus && (order.orderStatus === 'Return Requested' )) { %>
+        <div class="mt-4">
+          <h6>Return Request</h6>
+          <p>
+            <strong>Reason:</strong> <%= order.returnRequest.reason %> <br>
+            <strong>Status:</strong> <%= order.returnRequest.status %>
+          </p>
           <form id="verifyReturnForm" action="/admin/verify-return-request" method="POST">
             <input type="hidden" name="orderId" value="<%= order._id %>">
-            <button name="approve" value="true" type="submit" class="btn btn-success">Approve Return & Refund</button>
-            <button name="approve" value="false" type="submit" class="btn btn-danger">Decline Return</button>
+            <button name="approve" value="true" type="submit" class="btn btn-success">
+              Approve Return & Refund
+            </button>
+            <button name="approve" value="false" type="submit" class="btn btn-danger">
+              Decline Return
+            </button>
           </form>
-        <% } %>
-      </div>
+        </div>
       <% } %>
+      
     </div>
   </div>
   
@@ -101,15 +107,15 @@
         </thead>
         <tbody>
           <% order.items.forEach(item => { %>
-          <tr>
-            <td><%= item.productId.productName %></td>
-            <td>
-              <img src="<%= item.productId.productImage[0] %>" alt="<%= item.productId.productName %>" style="width: 80px; height: 80px; object-fit:cover;">
-            </td>
-            <td>₹<%= item.price %></td>
-            <td><%= item.quantity %></td>
-            <td>₹<%= item.totalPrice %></td>
-          </tr>
+            <tr>
+              <td><%= item.productId.productName %></td>
+              <td>
+                <img src="<%= item.productId.productImage[1] %>" alt="<%= item.productId.productName %>" style="width:10px; height: 10px; object-fit: cover;">
+              </td>
+              <td>₹<%= item.price %></td>
+              <td><%= item.quantity %></td>
+              <td>₹<%= item.totalPrice %></td>
+            </tr>
           <% }); %>
         </tbody>
       </table>
@@ -119,3 +125,53 @@
 </div>
 
 <%- include("../../views/partials/admin/footer") %>
+
+<!-- Add this before the closing body tag -->
+<script>
+document.getElementById('verifyReturnForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const orderId = form.querySelector('input[name="orderId"]').value;
+    const approve = e.submitter.value === 'true';
+    
+    fetch('/admin/verify-return-request', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            orderId: orderId,
+            approve: approve
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: data.message,
+                showConfirmButton: true
+            }).then(() => {
+                // Reload the page to show updated status
+                window.location.reload();
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.message || 'Failed to process return request'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Something went wrong while processing the return request'
+        });
+    });
+});
+</script>

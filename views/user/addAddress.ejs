@@ -46,6 +46,9 @@
 <div class="container address-form-container">
   <h3>Add New Address</h3>
   <form method="post" action="/addAddress">
+    <!-- Add hidden input for the 'from' parameter -->
+    <input type="hidden" name="from" value="<%= typeof from !== 'undefined' ? from : '' %>">
+    
     <div class="form-group">
       <label for="name">Name</label>
       <input type="text" id="name" name="name" class="form-control" required>

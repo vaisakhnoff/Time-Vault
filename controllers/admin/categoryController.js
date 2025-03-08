@@ -145,6 +145,7 @@ const getListCategory = async (req, res) => {
     try {
         const id = req.query.id;
 
+
         const category = await Category.findOne({_id:id});
         res.render('edit-category',{category:category})
 
@@ -152,7 +153,7 @@ const getListCategory = async (req, res) => {
         res.redirect('/pageError')
     }
   }
-  const editCategory = async (req, res) => {
+  const  editCategory = async (req, res) => {
     try {
       const id = req.params.id;
       const { categoryName, description } = req.body;

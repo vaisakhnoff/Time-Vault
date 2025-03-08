@@ -1,6 +1,7 @@
 const Order = require('../../models/orderSchema');
 const Product = require('../../models/productSchema');
 const Address = require('../../models/addressSchema');
+const User = require('../../models/userschema');
 
 const viewOrderDetails = async (req, res) => {
   try {
@@ -32,7 +33,7 @@ console.log("1",addressDoc); // Debugging line
     }
 
     console.log("Selected Address:", selectedAddress); // Debugging line
-    
+   
 
     res.render('orderDetails', {
       user: req.session.user,
@@ -73,6 +74,20 @@ const cancelOrder = async (req, res) => {
       ...order.statusUpdates,
       Cancelled: new Date()
     };
+
+
+
+    const user = await User.findById(order.user);
+    if (user) {
+      user.wallet = (user.wallet || 0) + order.totalAmount;
+      console.log("User wallet updated:", user.wallet);
+      
+      await user.save();
+    }
+
+
+
+
     await order.save();
     
     res.redirect(`/order/${orderId}`);
@@ -81,6 +96,36 @@ const cancelOrder = async (req, res) => {
     res.redirect('/pageNotFound');
   }
 };
+
+
+// const verifyReturnRequest = async (req, res) => {
+//   try {
+//     const { orderId, approve } = req.body;
+//     const order = await Order.findById(orderId).populate('user');
+//     if (!order)
+//       return res.json({ success: false, message: 'Order not found' });
+
+//     // Refund is processed only if admin has approved the return request.
+//     if (approve === 'true' || approve === true) {
+//       order.user.wallet = (order.user.wallet || 0) + order.totalAmount;
+//       await order.user.save();
+//       order.orderStatus = 'Returned';
+//       order.statusUpdates = order.statusUpdates || {};
+//       order.statusUpdates['Returned'] = new Date();
+//       await order.save();
+//       return res.json({ success: true, message: 'Return approved & amount refunded to wallet' });
+//     } else {
+//       order.orderStatus = 'Return Declined';
+//       order.statusUpdates = order.statusUpdates || {};
+//       order.statusUpdates['Return Declined'] = new Date();
+//       await order.save();
+//       return res.json({ success: true, message: 'Return request declined' });
+//     }
+//   } catch (error) {
+//     console.error('Error verifying return request:', error);
+//     res.json({ success: false, message: 'Error verifying return request' });
+//   }
+// };
 
 const submitReview = async (req, res) => {
   try {
@@ -120,8 +165,37 @@ const submitReview = async (req, res) => {
   }
 };
 
+const requestReturnOrder = async (req, res) => {
+  try {
+    const { orderId, reason } = req.body;
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.json({ success: false, message: 'Order not found' });
+    }
+    // Allow return only if the order is delivered.
+    if (order.orderStatus !== 'Delivered') {
+      return res.json({ success: false, message: 'Only delivered orders can be returned' });
+    }
+    // Set the return request details.
+    order.orderStatus = 'Return Requested';
+    order.returnRequest = {
+      reason: reason || '',
+      status: 'Requested',
+      requestedAt: new Date()
+    };
+    await order.save();
+    return res.json({ success: true, message: 'Return request submitted. Awaiting admin confirmation.' });
+  } catch (error) {
+    console.error('Error processing return request:', error);
+    return res.json({ success: false, message: 'Error processing return request' });
+  }
+};
+
 module.exports = {
+
   viewOrderDetails,
   cancelOrder,
-  submitReview
+  submitReview,
+  // verifyReturnRequest,
+  requestReturnOrder  // new function
 };

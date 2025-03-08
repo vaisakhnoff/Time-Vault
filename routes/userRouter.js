@@ -8,6 +8,7 @@ const profileController = require('../controllers/user/profileController')
 const cartController = require('../controllers/user/cartController')
 const orderController = require('../controllers/user/orderController')
 const wishlistController = require('../controllers/user/wishlistController');
+const walletController = require("../controllers/user/walletController");
 
 router.get('/',userController.loadHomepage)
 router.get('/pageNotFound',userController.pageNotFound)
@@ -43,6 +44,7 @@ router.post('/updateProfile',auth.checkSession,profileController.updateProfile);
 router.get('/userAddress',auth.checkSession,profileController.userAddress);
 router.get('/addAddress',auth.checkSession,profileController.addAddressPage);
 router.post('/addAddress',auth.checkSession,profileController.addAddress);
+router.get('/editAddress', auth.checkSession, profileController.editAddressPage);
 router.post('/editAddress',auth.checkSession,profileController.editAddressPage)
 router.post('/updateAddress', auth.checkSession, profileController.updateAddress);
 router.post('/deleteAddress', auth.checkSession, profileController.deleteAddress);
@@ -51,24 +53,22 @@ router.get('/orders',auth.checkSession,profileController.userOrders);
 router.get('/order/:id', auth.checkSession, orderController.viewOrderDetails);
 router.post('/cancelOrder', auth.checkSession, orderController.cancelOrder);
 router.post('/submitReview', auth.checkSession, orderController.submitReview);
+router.post('/returnOrder', auth.checkSession, orderController.requestReturnOrder);
 
 router.get('/cartPage',auth.checkSession,cartController.cartPage)
 router.post('/addToCart', auth.checkSession, cartController.addToCart);
 router.post('/removeFromCart', auth.checkSession, cartController.removeFromCart);
 router.post('/updateCart', auth.checkSession, cartController.updateCart);
 
-
-
 router.get('/wishlist',auth.checkSession,wishlistController.wishlist);
 router.post('/addWishlist',wishlistController.addWishlist)
 // router.post('/removeFromWishlist',wishlistController.removeFromWishlist)
 
-
-
 router.get('/checkoutPage',auth.checkSession,cartController.checkoutPage);
 router.post('/placeOrder',auth.checkSession,cartController.placeOrder);
 router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
+//  router.post('/verify-return-request', auth.checkSession, orderController.verifyReturnRequest);
 
-
+router.get('/wallet',auth.checkSession,walletController.wallet);
 
 module.exports =router;

@@ -293,17 +293,24 @@ const userAddress = async(req,res)=>{
 
 const addAddressPage = async(req,res)=>{
     try {
+
+      const from = req.query.from;
+
         const userId = req.session.user;
         const userData = await User.findById(userId).lean();
 
         res.render('addAddress',{
-            user:userData
+            user:userData,
+            from
         })
         
     } catch (error) {
         
     }
 }
+
+
+
 
 const addAddress = async (req, res) => {
   try {
@@ -315,53 +322,58 @@ const addAddress = async (req, res) => {
       return res.redirect('/userAddress?message=User not found&status=failure');
     }
 
-    // Extract address details from request body
-    const { addressType, name, city, landMark, state, pincode, phone_no, altPhone_no } = req.body;
+    const { addressType, name, city, landMark, state, pincode, phone_no, altPhone_no ,from} = req.body;
 
-    // Find user's existing address document
     let userAddress = await Address.findOne({ userId });
 
     if (!userAddress) {
-      // If no address exists, create a new one
+    
       userAddress = new Address({
         userId,
         address: [{ addressType, name, city, landMark, state, pincode, phone_no, altPhone_no }]
       });
     } else {
-      // If address exists, push new address to the array
+      
       userAddress.address.push({ addressType, name, city, landMark, state, pincode, phone_no, altPhone_no });
     }
 
-    await userAddress.save(); // Save the updated address document
-
-    res.redirect('/userAddress?message=Address added successfully&status=success');
+    await userAddress.save(); 
+if(from==="checkoutPage"){
+    return res.redirect('/checkoutPage');
+}
+else{
+  res.redirect('/userAddress?message=Address added successfully&status=success');
+}
   } catch (error) {
     console.error('Error adding address:', error);
     res.redirect('/userAddress?message=Error adding address&status=failure');
   }
 };
 
+
+
+
 const editAddressPage = async (req, res) => {
   try {
-    const userId = req.session.user;
-    const addressId = req.body.addressId;
+      const userId = req.session.user;
+      // Read from query parameters
+      const addressId = req.query.id;
+      const from = req.query.from;
 
-    
-    const addressDoc = await Address.findOne({ userId, "address._id": addressId }).lean();
-    if (!addressDoc) {
-      return res.redirect('/userAddress?message=Address not found');
-    }
+      const addressDoc = await Address.findOne({ userId, "address._id": addressId }).lean();
+      if (!addressDoc) {
+          return res.redirect('/userAddress?message=Address not found');
+      }
 
-    // Extract the matching subdocument
-    const addressData = addressDoc.address.find(addr => addr._id.toString() === addressId);
-    if (!addressData) {
-      return res.redirect('/userAddress?message=Address not found');
-    }
+      const addressData = addressDoc.address.find(addr => addr._id.toString() === addressId);
+      if (!addressData) {
+          return res.redirect('/userAddress?message=Address not found');
+      }
 
-    res.render('editAddress', { address: addressData });
+      res.render('editAddress', { address: addressData, from: from });
   } catch (error) {
-    console.error('Error fetching address for edit:', error);
-    res.redirect('/pageNotFound');
+      console.error('Error fetching address for edit:', error);
+      res.redirect('/pageNotFound');
   }
 };
 
@@ -423,26 +435,50 @@ const updateAddress = async (req, res) => {
   
   
 
+  // const deleteAddress = async (req, res) => {
+  //   try {
+  //     const userId = req.session.user;
+  //     const { addressId } = req.body;
+  //     if (!addressId) {
+  //       return res.json({ status: "failure", message: "Address not found" });
+  //     }
+      
+  //     await Address.updateOne(
+  //       { userId },
+  //       { $pull: { address: { _id: addressId } } }
+  //     );
+      
+  //     res.json({ status: "success", message: "Address deleted successfully" });
+  //   } catch (error) {
+  //     console.error("Error deleting address:", error);
+  //     res.json({ status: "failure", message: "Error deleting address" });
+  //   }
+  // };
+  
   const deleteAddress = async (req, res) => {
     try {
-      const userId = req.session.user;
-      const { addressId } = req.body;
-      if (!addressId) {
-        return res.json({ status: "failure", message: "Address not found" });
-      }
+        const userId = req.session.user;
+        // Get "from" from the request body
+        const { addressId, from } = req.body;
+        if (!addressId) {
+            return res.json({ status: "failure", message: "Address not found" });
+        }
       
-      await Address.updateOne(
-        { userId },
-        { $pull: { address: { _id: addressId } } }
-      );
+        await Address.updateOne(
+            { userId },
+            { $pull: { address: { _id: addressId } } }
+        );
       
-      res.json({ status: "success", message: "Address deleted successfully" });
+        if (from === "checkoutPage") {
+            res.json({ status: "success", message: "Address deleted successfully", redirectUrl: "/checkoutPage" });
+        } else {
+            res.json({ status: "success", message: "Address deleted successfully" });
+        }
     } catch (error) {
-      console.error("Error deleting address:", error);
-      res.json({ status: "failure", message: "Error deleting address" });
+        console.error("Error deleting address:", error);
+        res.json({ status: "failure", message: "Error deleting address" });
     }
-  };
-  
+};
 
 const userOrders = async (req, res) => {
   try {
