@@ -11,26 +11,41 @@ const { getRandomValues } = require('crypto');
 
 const getProductInfo = async (req, res) => {
     try {
-     
-      let query = {};
-  
-      
-      if (req.query.search) {
-       
-        query.productName = { $regex: req.query.search, $options: 'i' };
-    
+        const page = parseInt(req.query.page) || 0;
+        const perPage = 8; // items per page
+        const searchQuery = req.query.search || '';
 
-      
-      }
-  
-      const products = await Product.find(query).populate('category');
-  
-      res.render('products', { products });
+        // Create search filter
+        let query = {};
+        if (searchQuery) {
+            query.productName = { $regex: searchQuery, $options: 'i' };
+        }
+
+        // Get total count for pagination
+        const totalProducts = await Product.countDocuments(query);
+        const totalPages = Math.ceil(totalProducts / perPage);
+
+        // Get products with pagination and search
+        const products = await Product.find(query)
+            .populate('category')
+            .sort({ createdAt: -1 })
+            .skip(page * perPage)
+            .limit(perPage)
+            .lean();
+
+        res.render('products', {
+            products,
+            currentPage: page,
+            totalPages: totalPages,
+            searchQuery: searchQuery,
+            perPage: perPage,
+            total: totalProducts
+        });
     } catch (error) {
-      console.error("Error fetching products:", error);
-      res.redirect('/pageError');
+        console.error("Error fetching products:", error);
+        res.redirect('/pageError');
     }
-  };
+};
   
 
 const getProductAddPage = async(req,res)=>{

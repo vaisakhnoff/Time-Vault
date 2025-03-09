@@ -6,29 +6,37 @@ const { ReturnDocument } = require('mongodb');
 
 const categoryInfo = async(req,res)=>{
     try {
-        const  page = parseInt(req.query.page) || 1;
-        const limit = 4;
-        const skip = (page-1)*limit;
+        const page = parseInt(req.query.page) || 0;
+        const perPage = 4; // items per page
+        const searchQuery = req.query.search || '';
 
+        // Create search filter
+        const filter = searchQuery ? {
+            name: { $regex: searchQuery, $options: 'i' }
+        } : {};
 
-        const categoryData = await Category.find({})
-            .sort({createdAt:-1})
-            .skip(skip)
-            .limit(limit)
+        // Get total count for pagination
+        const totalCategories = await Category.countDocuments(filter);
+        const totalPages = Math.ceil(totalCategories / perPage);
 
-            const totalCategories = Category.countDocuments();
-            const totalPages = Math.ceil(totalCategories/limit);
-            res.render("category",{
-                cat:categoryData,
-                currentPage:page,
-                totalPages:totalPages,
-                totalCategories:totalCategories
-            });
+        // Get categories with pagination and search
+        const categories = await Category.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(page * perPage)
+            .limit(perPage)
+            .lean();
 
-    
+        res.render("category", {
+            cat: categories,
+            currentPage: page,
+            totalPages: totalPages,
+            searchQuery: searchQuery,
+            perPage: perPage,
+            total: totalCategories
+        });
     } catch (error) {
-        console.error(error);
-        res.redirect('/pageError')
+        console.error('Error in categoryInfo:', error);
+        res.redirect('/pageError');
     }
 }
 
@@ -203,4 +211,4 @@ module.exports ={
    getUnlistCategory,
    getEditCategory,
    editCategory
-    } 
+    }

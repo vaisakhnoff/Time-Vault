@@ -207,20 +207,19 @@ const onlinePaymentSuccess = async (req, res) => {
   try {
       const userId = req.session.user;
       const { razorpay_order_id, razorpay_payment_id, razorpay_signature, addressId } = req.body;
-      // Optionally, verify the payment signature (refer Razorpay docs)
-      // For demo, we assume signature verification passes.
 
       // Get cart details
       const cart = await Cart.findOne({ userId }).populate('items.productId');
       if (!cart || cart.items.length === 0) {
           return res.status(400).json({ error: 'Cart is empty' });
       }
+
       // Calculate total amount (in rupees)
       const totalAmount = cart.items.reduce((total, item) => {
           return total + item.productId.salePrice * item.quantity;
       }, 0);
       
-      // Create the order document using cart details.
+      // Create the order document using cart details
       const order = new Order({
           user: userId,
           items: cart.items.map(item => ({
@@ -229,19 +228,30 @@ const onlinePaymentSuccess = async (req, res) => {
               price: item.productId.salePrice,
               totalPrice: item.productId.salePrice * item.quantity
           })),
-          address: addressId,  // You can also fetch and embed complete address info if needed.
+          address: addressId,
           paymentMethod: 'Online',
           paymentStatus: 'Completed',
           totalAmount: totalAmount,
-          orderStatus: 'Pending'  // Update as per your flow.
+          orderStatus: 'Pending'
       });
       await order.save();
+
+      // Decrease each product's quantity by the purchased amount
+      for (const item of cart.items) {
+          await Product.findByIdAndUpdate(
+              item.productId._id, 
+              { $inc: { quantity: -item.quantity } }
+          );
+      }
 
       // Empty the cart
       cart.items = [];
       await cart.save();
 
-      return res.json({ success: true, orderId: order._id });
+      // Store the order ID in session for orderSuccess page to display
+      req.session.lastOrderId = order._id;
+
+      return res.json({ success: true });
   } catch (error) {
       console.error('Error finalizing online payment:', error);
       return res.status(500).json({ success: false, error: 'Unable to finalize order' });

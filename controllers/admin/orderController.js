@@ -91,30 +91,9 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    const finalStatuses = ['Delivered', 'Cancelled', 'Returned', 'Return Declined'];
-    if (finalStatuses.includes(order.orderStatus)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Final order status reached. No further updates are allowed.',
-        icon: 'warning'
-      });
-    }
-
-    const currentStatusIndex = validStatuses.indexOf(order.orderStatus);
-    const newStatusIndex = validStatuses.indexOf(newStatus);
-
-    if (newStatusIndex < currentStatusIndex) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Order status cannot be reversed to a previous state.',
-        icon: 'warning'
-      });
-    } else if (newStatusIndex === currentStatusIndex) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Order is already in the selected status.',
-        icon: 'info'
-      });
+    // Update payment status to Completed when order is delivered for COD orders
+    if (newStatus === 'Delivered' && order.paymentMethod === 'COD') {
+      order.paymentStatus = 'Completed';
     }
 
     order.orderStatus = newStatus;

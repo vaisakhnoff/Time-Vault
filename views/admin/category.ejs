@@ -65,6 +65,37 @@
     .error-message {
       color: red;
     }
+
+    /* Add these to your existing styles */
+    .pagination {
+        margin: 20px 0;
+    }
+
+    .pagination .page-link {
+        color: #007bff;
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #007bff;
+        border-color: #007bff;
+        color: #fff;
+    }
+
+    .pagination .page-link:hover {
+        background-color: #e9ecef;
+        border-color: #dee2e6;
+        color: #0056b3;
+    }
+
+    .pagination .page-item.disabled .page-link {
+        color: #6c757d;
+        pointer-events: none;
+        background-color: #fff;
+        border-color: #dee2e6;
+    }
   </style>
 </head>
 <body>
@@ -162,24 +193,55 @@
                   </tr>
                     <%})%>
                 </tbody>
-          </div>
-        </div>
-      </div>
-    </div>
-  
+              </table>
+            </div> <!-- close table-responsive -->
+          </div> <!-- close col-md-8 -->
+        </div> <!-- close row -->
+      </div> <!-- close card-body -->
+    </div> <!-- close card -->
 
-    <div class="container mt-3">
+    <!-- Add pagination at the bottom with proper spacing -->
+    <div class="pagination-wrapper mt-4 mb-4">
       <nav aria-label="Page navigation">
-          <ul class="pagination justify-content-center mb-20" style="margin-right: 200px;">
-              <% for(let i = 0; i < totalPages; i++) { %>
-                <li class="page-item <%= (i === currentPage) ? 'active' : '' %>">
-                  <a class="page-link" href="?page=<%= i %>"><%= i %></a>
-                </li>
-              <% } %>
-            </ul>
-            
+        <ul class="pagination justify-content-center">
+          <!-- Previous button -->
+          <% if (currentPage > 0) { %>
+            <li class="page-item">
+              <a class="page-link" href="?page=<%= currentPage - 1 %><%= searchQuery ? '&search=' + searchQuery : '' %>" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+              </a>
+            </li>
+          <% } %>
+
+          <!-- Page numbers -->
+          <% for(let i = 0; i < totalPages; i++) { %>
+            <li class="page-item <%= (i === currentPage) ? 'active' : '' %>">
+              <a class="page-link" href="?page=<%= i %><%= searchQuery ? '&search=' + searchQuery : '' %>">
+                <%= i + 1 %>
+              </a>
+            </li>
+          <% } %>
+
+          <!-- Next button -->
+          <% if (currentPage < totalPages - 1) { %>
+            <li class="page-item">
+              <a class="page-link" href="?page=<%= currentPage + 1 %><%= searchQuery ? '&search=' + searchQuery : '' %>" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+              </a>
+            </li>
+          <% } %>
+        </ul>
       </nav>
-  </div>
+    </div>
+
+    
+    <!-- Optional: Add page info -->
+    <div class="text-center mt-2">
+        <small class="text-muted">
+            Showing <%= (currentPage * perPage) + 1 %> to <%= Math.min((currentPage + 1) * perPage, total) %> of <%= total %> entries
+        </small>
+    </div>
+</div>
 
       
   </section>

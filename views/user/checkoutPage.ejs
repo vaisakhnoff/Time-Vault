@@ -207,7 +207,8 @@
           });
           const verifyData = await verifyRes.json();
           if (verifyData.success) {
-            window.location.href = `/order/${verifyData.orderId}`;
+            // Redirect to orderSuccess page instead of order details
+            window.location.href = '/orderSuccess';
           } else {
             alert('Payment verification failed: ' + verifyData.error);
           }

@@ -4,6 +4,34 @@
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/sweetalert2@10/dist/sweetalert2.min.css"
   />
+  <style>
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+    }
+
+    .page-item.active .page-link {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+
+    .page-link {
+        color: #007bff;
+        padding: 8px 16px;
+        border-radius: 4px;
+    }
+
+    .page-link:hover {
+        background-color: #e9ecef;
+        border-color: #dee2e6;
+        color: #0056b3;
+    }
+
+    .text-muted {
+        color: #6c757d;
+    }
+</style>
 </head>
 
 <!-- Top row: Title & Add Product button -->
@@ -83,16 +111,45 @@
   </div>
 </div>
 
+<!-- Replace the existing pagination section -->
 <div class="container mt-3">
-  <nav aria-label="Page navigation">
-    <ul class="pagination justify-content-center mb-20" style="margin-right: 200px;">
-      <%  %>
-      <li class="page-item <%= %>">
-        <a class="page-link" href="?page=<%= %>"><%= %></a>
-      </li>
-      <%  %>
-    </ul>
-  </nav>
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center mb-4">
+            <!-- Previous button -->
+            <% if (currentPage > 0) { %>
+                <li class="page-item">
+                    <a class="page-link" href="?page=<%= currentPage - 1 %><%= searchQuery ? '&search=' + searchQuery : '' %>" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            <% } %>
+
+            <!-- Page numbers -->
+            <% for(let i = 0; i < totalPages; i++) { %>
+                <li class="page-item <%= (i === currentPage) ? 'active' : '' %>">
+                    <a class="page-link" href="?page=<%= i %><%= searchQuery ? '&search=' + searchQuery : '' %>">
+                        <%= i + 1 %>
+                    </a>
+                </li>
+            <% } %>
+
+            <!-- Next button -->
+            <% if (currentPage < totalPages - 1) { %>
+                <li class="page-item">
+                    <a class="page-link" href="?page=<%= currentPage + 1 %><%= searchQuery ? '&search=' + searchQuery : '' %>" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            <% } %>
+        </ul>
+    </nav>
+
+    <!-- Page info -->
+    <div class="text-center mt-2 mb-4">
+        <small class="text-muted">
+            Showing <%= (currentPage * perPage) + 1 %> to <%= Math.min((currentPage + 1) * perPage, total) %> of <%= total %> products
+        </small>
+    </div>
 </div>
 
 <script>
