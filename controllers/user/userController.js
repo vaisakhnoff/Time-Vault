@@ -1,5 +1,3 @@
-
-
 const { request } = require('../../app');
 const User = require('../../models/userschema');
 const nodemailer = require('nodemailer')
@@ -9,6 +7,7 @@ const passport = require("passport");
 
 const Category = require('../../models/categorySchema');
 const Product = require('../../models/productSchema');
+const WalletTransaction = require('../../models/walletSchema');
 
 
 
@@ -132,40 +131,81 @@ return false
     }
  }
 
+ function generateReferralCode() {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    const charactersLength = characters.length;
+    for (let i = 0; i < 6; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+}
+
+
 
 
 
 const signUp = async(req,res)=>{
     try {
-        
-        const {firstName,lastName,phoneNumber,email,password,confirmPassword}=req.body;
+        const { firstName, lastName, phoneNumber, email, password, confirmPassword, referalCode } = req.body;
 
-        if(password!==confirmPassword){
+        if(password !== confirmPassword){
             return res.render('signup',{message:"Passwords do not match"});
         }
-        const findUser = await User.findOne({email});
+        
+        const findUser = await User.findOne({ email });
         if(findUser){
             return res.render('signup',{message:"User with this email already exists"});
         }
 
-        const otp = generateOTP();
-        const emailSend = await  sendverificationEmail(email,otp);
-        
-
-        if(!emailSend){
-            return res.json("Email-Error")
+        // Generate a unique referral code
+        let newReferralCode;
+        let isUnique = false;
+        while (!isUnique) {
+            newReferralCode = generateReferralCode();
+            console.log(newReferralCode);
+            
+            const existingUser = await User.findOne({ referalCode: newReferralCode });
+            if (!existingUser) {
+                isUnique = true;
+            }
         }
 
-        req.session.userOtp = otp
-        req.session.userData = {firstName,lastName,phoneNumber,email,password};
+        // If a referral code is provided, try to find the referrer
+        let referrer = null;
+        if(referalCode && referalCode.trim() !== ""){
+            referrer = await User.findOne({ referalCode: referalCode.trim() });
+            if(!referrer) {
+                return res.render('signup',{message:"Invalid referral code"});
+            }
+        }
 
+        // Generate an OTP and send verification email
+        const otp = generateOTP();
+        const emailSend = await sendverificationEmail(email, otp);
+        
+        if(!emailSend){
+            return res.json("Email-Error");
+        }
+
+        // Store the signup data along with the referral info in session
+        req.session.userOtp = otp;
+        req.session.userData = { 
+            firstName, 
+            lastName, 
+            phoneNumber, 
+            email, 
+            password, 
+            referalCode: referalCode ? referalCode.trim() : null,
+            newReferralCode // Add the generated referral code to the session
+        };
 
         res.render("verify-otp");
-        console.log("OTP sent",otp);
+        console.log("OTP sent", otp);
         
     } catch (error) {
-        console.error("signup error",error);
-        res.redirect('/pageNotFound')
+        console.error("signup error", error);
+        res.redirect('/pageNotFound');
     }
 }
 
@@ -178,43 +218,82 @@ const securePassword = async(password)=>{
 }
 
 
+
+
+
 const verifyOtp = async (req, res) => {
     try {
         const { otp } = req.body;
         console.log("Received OTP:", otp);
 
-        // Check if the OTP is for signup
         if (req.session.userOtp && otp === req.session.userOtp) {
             const userData = req.session.userData;
             const passwordHash = await securePassword(userData.password);
 
-            const saveUserData = new User({
+            const newUser = new User({
                 firstName: userData.firstName,
                 lastName: userData.lastName,
                 email: userData.email,
                 phoneNumber: userData.phoneNumber,
                 password: passwordHash,
+                referalCode: userData.newReferralCode // Use the generated referral code
             });
 
-            await saveUserData.save();
-            req.session.userOtp = null; // Clear OTP after successful signup
-            req.session.userData = null; // Clear user data
+            // Save the new user
+            const savedUser = await newUser.save();
+
+            // Handle referral bonus if applicable
+            if(userData.referalCode) {
+                const referrer = await User.findOne({ referalCode: userData.referalCode });
+                if(referrer) {
+                    const bonusAmount = 100;
+                    referrer.wallet += bonusAmount;
+                    referrer.redeemedUsers.push(savedUser._id);
+                    await referrer.save();
+
+                    // Create a wallet transaction record for referrer bonus credit
+                    let refTransaction = new WalletTransaction({
+                        userId: referrer._id,
+                        amount: bonusAmount,
+                        type: "Credit",
+                        description: "Referral bonus credited"
+                    });
+                    await refTransaction.save();
+
+                    savedUser.wallet += bonusAmount;
+                    await savedUser.save();
+
+                    // Optionally, create a wallet transaction record for new user bonus credit
+                    let userTransaction = new WalletTransaction({
+                        userId: savedUser._id,
+                        amount: bonusAmount,
+                        type: "Credit",
+                        description: "Referral bonus credited"
+                    });
+                    await userTransaction.save();
+                }
+            }
+
+            req.session.userOtp = null; 
+            req.session.userData = null;
 
             return res.json({ success: true, redirectUrl: "/login" });
         }
 
-        // Check if the OTP is for forgot password
         if (req.session.forgotOtp && otp === req.session.forgotOtp) {
-            req.session.otpVerified = true; // Mark OTP as verified for password reset
-            return res.json({ success: true, redirectUrl: "/resetPassword" });
-        }
-
-        return res.status(400).json({ success: false, message: "Invalid OTP, Please try again." });
+                        req.session.otpVerified = true; // Mark OTP as verified for password reset
+                        return res.json({ success: true, redirectUrl: "/resetPassword" });
+                    }
+            
+                    return res.status(400).json({ success: false, message: "Invalid OTP, Please try again." });
+            
     } catch (error) {
         console.error("Error verifying OTP", error);
         res.status(500).json({ success: false, message: "An error occurred" });
     }
 };
+
+
 
   
   const resendOtp = async (req, res) => {

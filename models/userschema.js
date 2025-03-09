@@ -2,6 +2,16 @@ const { name } = require('ejs');
 const mongoose = require('mongoose');
 const {Schema} = mongoose;
 
+function generateReferralCode() {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    const charactersLength = characters.length;
+    for (let i = 0; i < 6; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+}
+
 const userschema =  new Schema({
     firstName: {
         type : String,
@@ -60,11 +70,11 @@ const userschema =  new Schema({
         type:Date,
         default:Date.now
       },
-      referalCode:{
-        type:String,
-        // required:true
-        
+      referalCode: {
+        type: String,
+        unique: true
       },
+      
       redeemed:{
         type:Boolean,
         // default:false 
