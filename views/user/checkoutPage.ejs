@@ -46,7 +46,7 @@
 
     <!-- Order Form (Address + Payment Method) -->
     <div class="order_form mt-5">
-      <form action="/placeOrder" method="POST">
+      <form id="checkout-form" method="POST" action="/placeOrder">
         <!-- Address Details Section -->
         <div class="address_section mb-4">
           <div class="d-flex justify-content-between align-items-center mb-4">
@@ -85,7 +85,6 @@
                       
                       <div class="mt-3">
                         <a href="/editAddress?id=<%= addr._id %>&from=checkoutPage" class="btn btn-outline-primary btn-sm">Edit</a>
-
                         <a href="javascript:void(0);" class="btn btn-outline-danger btn-sm" onclick="deleteAddress('<%= addr._id %>','checkoutPage')">Delete</a>
                       </div>
                     </div>
@@ -135,33 +134,95 @@
   </div>
 </section>
 
+<!-- Include Razorpay Checkout script -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
 <script>
-function deleteAddress(addressId, from) {
-  if (confirm('Are you sure you want to delete this address?')) {
-    fetch('/deleteAddress', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ addressId: addressId, from: from })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.status === "success") {
-        if (data.redirectUrl) {
-          window.location.href = data.redirectUrl;
+  // Function to delete an address
+  function deleteAddress(addressId, from) {
+    if (confirm('Are you sure you want to delete this address?')) {
+      fetch('/deleteAddress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ addressId: addressId, from: from })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "success") {
+          if (data.redirectUrl) {
+            window.location.href = data.redirectUrl;
+          } else {
+            location.reload();
+          }
         } else {
-          location.reload();
+          Swal.fire("Error", data.message, "error");
         }
-      } else {
-        Swal.fire("Error", data.message, "error");
-      }
-    })
-    .catch(error => {
-      Swal.fire("Error", "Error deleting address", "error");
-    });
+      })
+      .catch(error => {
+        Swal.fire("Error", "Error deleting address", "error");
+      });
+    }
   }
-}
+
+  // Listen to the form submit event for payment processing
+  document.getElementById('checkout-form').addEventListener('submit', async function(e) {
+    const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+    if (paymentMethod === 'Online') {
+      e.preventDefault(); // prevent form submission to /placeOrder
+
+      const addressId = document.querySelector('input[name="addressId"]:checked').value;
+      
+      // Create online order via API
+      const orderRes = await fetch('/createOnlineOrder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addressId })
+      });
+      if (!orderRes.ok) {
+        const error = await orderRes.json();
+        return alert("Error creating order: " + error.message);
+      }
+      const { orderData } = await orderRes.json();
+
+      // Initialize Razorpay options with redirect false
+      var options = {
+        "key": "<%= razorpayKey %>",
+        "amount": orderData.amount,
+        "currency": "INR",
+        "name": "Your Store",
+        "description": "Order Payment",
+        "order_id": orderData.id,
+        "handler": async function(response) {
+          const verifyRes = await fetch('/onlinePaymentSuccess', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              addressId: addressId
+            })
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyData.success) {
+            window.location.href = `/order/${verifyData.orderId}`;
+          } else {
+            alert('Payment verification failed: ' + verifyData.error);
+          }
+        },
+        "theme": { "color": "#3399cc" }
+      };
+
+      var rzp1 = new Razorpay(options);
+      rzp1.open();
+
+    } else {
+      // For COD, submit the form normally
+      e.target.submit();
+    }
+  });
 </script>
 
 <%- include("../../views/partials/user/footer") %>

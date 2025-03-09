@@ -5,7 +5,7 @@ const Cart = require('../../models/cartSchema');
 const Address = require('../../models/addressSchema'); 
 const Order = require('../../models/orderSchema.js');
 const Wishlist = require('../../models/wishlistSchema');
-
+const crypto = require('crypto');
 const cartPage = async (req, res) => {
   try {
     const userId = req.session.user;
@@ -155,7 +155,8 @@ const checkoutPage = async (req, res) => {
     res.render('checkoutPage', {
       user: userData,
       cart: cart || { items: [] },
-      address: addressData.length > 0 ? addressData[0].address : []
+      address: addressData.length > 0 ? addressData[0].address : [],
+      razorpayKey: process.env.RAZORPAY_KEY_ID 
     });
     
   } catch (error) {
@@ -169,6 +170,11 @@ const placeOrder = async (req, res) => {
   try {
     const userId = req.session.user;
     const { addressId, paymentMethod } = req.body;
+
+    if (paymentMethod !== 'COD') {
+      return res.status(400).json({ message: 'Invalid payment method' });
+    }
+    
 
     const cart = await Cart.findOne({ userId }).populate('items.productId');
     if (!cart || !cart.items.length) {
@@ -198,9 +204,9 @@ const placeOrder = async (req, res) => {
       })),
       address: selectedAddress, // Use the extracted address
       paymentMethod,
+      paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Completed',
       totalAmount,
-      orderStatus: 'Pending',
-      paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Processing'
+      orderStatus: 'Pending'
     });
 
     await order.save();
@@ -215,8 +221,10 @@ const placeOrder = async (req, res) => {
 
     if (paymentMethod === 'COD') {
       return res.redirect('/orderSuccess');
+
     } else {
-      return res.redirect('/payment');
+      // return res.redirect('//createOnlineOrder');
+      return res.json({ razorpay: true });
     }
   } catch (error) {
     console.error('Error placing order:', error);

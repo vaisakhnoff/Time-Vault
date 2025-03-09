@@ -504,6 +504,42 @@ const userOrders = async (req, res) => {
   }
 };
 
+const getReferrals = async (req, res) => {
+    try {
+        const userId = req.session.user;
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+        const skip = (page - 1) * limit;
+
+        // Get the user details (including referral code and redeemedUsers)
+        const userData = await User.findById(userId).lean();
+
+        // redeemedUsers is an array of user IDs that have redeemed the referral bonus
+        const redeemedUserIds = userData.redeemedUsers || [];
+        const totalReferrals = redeemedUserIds.length;
+        const totalPages = Math.ceil(totalReferrals / limit);
+
+        // Get the referred users with pagination
+        const referrals = await User.find({
+            _id: { $in: redeemedUserIds }
+        })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+        res.render('referalPage', {
+            user: userData,
+            referrals: referrals,
+            currentPage: page,
+            totalPages: totalPages,
+            activeTab: 'referal'
+        });
+    } catch (error) {
+        console.error('Error fetching referrals:', error);
+        res.redirect('/pageNotFound');
+    }
+};
+
 module.exports ={
     userProfile,
     changeEmail,
@@ -521,5 +557,6 @@ module.exports ={
     editAddressPage,
     updateAddress,
     deleteAddress,
-    userOrders
+    userOrders,
+    getReferrals
 }

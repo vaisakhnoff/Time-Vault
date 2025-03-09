@@ -2,6 +2,14 @@ const Order = require('../../models/orderSchema');
 const Product = require('../../models/productSchema');
 const Address = require('../../models/addressSchema');
 const User = require('../../models/userschema');
+const Razorpay = require('razorpay');
+const Cart = require('../../models/cartSchema');
+const crypto = require('crypto');
+
+const instance = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,         
+    key_secret: process.env.RAZORPAY_KEY_SECRET   
+});
 
 const viewOrderDetails = async (req, res) => {
   try {
@@ -164,11 +172,89 @@ const requestReturnOrder = async (req, res) => {
   }
 };
 
+const createOnlineOrder = async (req, res) => {
+  try {
+      const userId = req.session.user;
+      const { addressId } = req.body;
+      
+      const cart = await Cart.findOne({ userId }).populate('items.productId');
+      if (!cart || cart.items.length === 0) {
+          return res.status(400).json({ error: 'Cart is empty' });
+      }
+      // Calculate total (assumes product.salePrice is in rupees)
+      const totalAmount = cart.items.reduce((total, item) => {
+          return total + item.productId.salePrice * item.quantity;
+      }, 0);
+      // Convert to paise (multiply by 100)
+      const amountInPaise = totalAmount * 100;
+      
+      const options = {
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: 'receipt_order_' + Date.now()
+      };
+
+      const orderData = await instance.orders.create(options);
+      // You may store orderData along with cart details temporarily if needed.
+      return res.json({ orderData });
+  } catch (error) {
+      console.error('Error creating online order:', error);
+      return res.status(500).json({ error: 'Unable to create order' });
+  }
+};
+
+const onlinePaymentSuccess = async (req, res) => {
+  try {
+      const userId = req.session.user;
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, addressId } = req.body;
+      // Optionally, verify the payment signature (refer Razorpay docs)
+      // For demo, we assume signature verification passes.
+
+      // Get cart details
+      const cart = await Cart.findOne({ userId }).populate('items.productId');
+      if (!cart || cart.items.length === 0) {
+          return res.status(400).json({ error: 'Cart is empty' });
+      }
+      // Calculate total amount (in rupees)
+      const totalAmount = cart.items.reduce((total, item) => {
+          return total + item.productId.salePrice * item.quantity;
+      }, 0);
+      
+      // Create the order document using cart details.
+      const order = new Order({
+          user: userId,
+          items: cart.items.map(item => ({
+              productId: item.productId._id,
+              quantity: item.quantity,
+              price: item.productId.salePrice,
+              totalPrice: item.productId.salePrice * item.quantity
+          })),
+          address: addressId,  // You can also fetch and embed complete address info if needed.
+          paymentMethod: 'Online',
+          paymentStatus: 'Completed',
+          totalAmount: totalAmount,
+          orderStatus: 'Pending'  // Update as per your flow.
+      });
+      await order.save();
+
+      // Empty the cart
+      cart.items = [];
+      await cart.save();
+
+      return res.json({ success: true, orderId: order._id });
+  } catch (error) {
+      console.error('Error finalizing online payment:', error);
+      return res.status(500).json({ success: false, error: 'Unable to finalize order' });
+  }
+};
+
 module.exports = {
 
   viewOrderDetails,
   cancelOrder,
   submitReview,
   // verifyReturnRequest,
-  requestReturnOrder  // new function
+  requestReturnOrder,  // new function
+  createOnlineOrder,
+  onlinePaymentSuccess
 };

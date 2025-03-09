@@ -1,60 +1,17 @@
-// const passport = require("passport");
-// const GoogleStrategy = require("passport-google-oauth20").Strategy;
-// const User = require("../models/userschema");
-// require('dotenv').config();
-
-// passport.use(new GoogleStrategy({
-//     clientID: process.env.GOOGLE_CLIENT_ID,
-//     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-//     callbackURL: '/auth/google/callback'
-//   },
-//   async (accessToken, refreshToken, profile, done) => {
-//     try {
-//       // Ensure profile.emails exists and has a value
-//       if (!profile.emails || profile.emails.length === 0) {
-//         return done(new Error("No email found in the Google profile"), null);
-//       }
-      
-//       let user = await User.findOne({ googleId: profile.id });
-//       if (user) {
-//         return done(null, user);
-//       } else {
-//         // Split displayName into first and last names
-//         const nameParts = profile.displayName ? profile.displayName.split(" ") : [];
-//         const firstName = nameParts[0] || "";
-//         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
-
-//         // Create new user with the extracted names
-//         user = new User({
-//           firstName: firstName,
-//           lastName: lastName,
-//           email: profile.emails[0].value,
-//           googleId: profile.id
-//         });
-//         await user.save();
-       
-        
-//         return done(null, user);
-//       }
-//     } catch (error) {
-//       return done(error, null);
-//     }
-//   }
-// ));
-
-// passport.serializeUser((user, done) => {
-//   done(null, user.id);
-// });
-
-// passport.deserializeUser((id, done) => {
-//   User.findById(id)
-//     .then(user => done(null, user))
-//     .catch(err => done(err, null));
-// });
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const User = require("../models/userschema");
 require('dotenv').config();
+
+// Add the referral code generator function
+function generateReferralCode() {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
+}
 
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -82,12 +39,24 @@ passport.use(new GoogleStrategy({
         const firstName = nameParts[0] || "";
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
-        // Create new user with the extracted names
+        // Generate a unique referral code for Google signup
+        let newReferralCode;
+        let isUnique = false;
+        while (!isUnique) {
+            newReferralCode = generateReferralCode();
+            const existingUser = await User.findOne({ referalCode: newReferralCode });
+            if (!existingUser) {
+                isUnique = true;
+            }
+        }
+
+        // Create new user with the extracted names and referral code
         user = new User({
           firstName: firstName,
           lastName: lastName,
           email: profile.emails[0].value,
-          googleId: profile.id
+          googleId: profile.id,
+          referalCode: newReferralCode
         });
         await user.save();
         return done(null, user);
@@ -107,7 +76,5 @@ passport.deserializeUser((id, done) => {
     .then(user => done(null, user))
     .catch(err => done(err, null));
 });
-
-
 
 module.exports = passport;

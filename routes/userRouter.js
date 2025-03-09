@@ -10,6 +10,7 @@ const orderController = require('../controllers/user/orderController')
 const wishlistController = require('../controllers/user/wishlistController');
 const walletController = require("../controllers/user/walletController");
 
+
 router.get('/',userController.loadHomepage)
 router.get('/pageNotFound',userController.pageNotFound)
 router.get('/login',userController.loadLoginPage)
@@ -55,6 +56,9 @@ router.post('/cancelOrder', auth.checkSession, orderController.cancelOrder);
 router.post('/submitReview', auth.checkSession, orderController.submitReview);
 router.post('/returnOrder', auth.checkSession, orderController.requestReturnOrder);
 
+router.post('/createOnlineOrder', orderController.createOnlineOrder);
+router.post('/onlinePaymentSuccess', orderController.onlinePaymentSuccess);
+
 router.get('/cartPage',auth.checkSession,cartController.cartPage)
 router.post('/addToCart', auth.checkSession, cartController.addToCart);
 router.post('/removeFromCart', auth.checkSession, cartController.removeFromCart);
@@ -70,6 +74,9 @@ router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
 
 
 router.get('/wallet',auth.checkSession,walletController.wallet);
+router.get('/referal',auth.checkSession,profileController.getReferrals);
+
+
 
 
 module.exports =router;
