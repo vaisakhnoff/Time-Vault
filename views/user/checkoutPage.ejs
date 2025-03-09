@@ -33,8 +33,8 @@
                 </td>
                 <td><%= item.productId.productName %></td>
                 <td><%= item.quantity %></td>
-                <td>$<%= item.productId.salePrice.toFixed(2) %></td>
-                <td>$<%= (item.productId.salePrice * item.quantity).toFixed(2) %></td>
+                <td>₹<%= item.productId.salePrice.toFixed(2) %></td>
+                <td>₹<%= (item.productId.salePrice * item.quantity).toFixed(2) %></td>
               </tr>
             <% }); %>
           </tbody>

@@ -24,6 +24,7 @@ const categoryController = require('../controllers/admin/categoryController')
 const orderController = require('../controllers/admin/orderController');
 const productController = require('../controllers/admin/productController')
 const auth=require('../middleware/admin/auth')
+const couponController = require('../controllers/admin/couponController');
 
 
 
@@ -61,6 +62,11 @@ router.post('/editProduct/:id', auth.admincheckSession, uploads.array('images', 
 router.post('/addProductOffer', productController.addProductOffer);
 router.post('/removeProductOffer', productController.removeProductOffer);
 
+router.get('/coupon', auth.adminIsLogin, couponController.couponInfo);
+router.post('/addCoupon', auth.adminIsLogin, couponController.addCoupon);
+router.get('/editCoupon', auth.adminIsLogin, couponController.getEditCoupon);
+router.post('/editCoupon', auth.adminIsLogin, couponController.editCoupon);
+router.get('/deleteCoupon', auth.adminIsLogin, couponController.deleteCoupon);
 
 router.get('/orders', auth.admincheckSession, orderController.listOrders);
 router.get('/order/:id', auth.admincheckSession, orderController.viewOrderDetails);

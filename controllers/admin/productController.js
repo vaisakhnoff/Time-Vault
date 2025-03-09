@@ -249,85 +249,87 @@ if (req.files && req.files.length > 0) {
     }
   };
   
-const addProductOffer = async (req, res) => {
+  const addProductOffer = async (req, res) => {
     try {
-        const { productId, percentage } = req.body;
-        
-        // Validate offer percentage
-        if (!percentage || percentage <= 0 || percentage > 99) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid offer percentage'
-            });
-        }
-
-        // Find the product and populate its category
-        const product = await Product.findById(productId).populate('category');
-        if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
-        }
-
-        // Check if category has an offer
-        if (product.category.categoryOffer > 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot add product offer when category offer exists'
-            });
-        }
-
-        // Calculate new sale price with offer
-        const discountedPrice = product.regularPrice * (1 - percentage/100);
-        
-        // Update product with offer
-        product.productOffer = percentage;
-        product.salePrice = discountedPrice;
-        await product.save();
-
-        return res.json({
-            success: true,
-            message: 'Product offer added successfully'
+      const { productId, percentage } = req.body;
+      
+      if (!percentage || percentage <= 0 || percentage > 99) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid offer percentage'
         });
+      }
+  
+      const product = await Product.findById(productId).populate('category');
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: 'Product not found'
+        });
+      }
+  
+      if (product.category?.categoryOffer) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot add product offer when category offer exists'
+        });
+      }
+  
+      // Calculate new price based on current sale price
+      const originalSalePrice = product.salePrice;
+      product.salePrice = originalSalePrice * (1 - percentage/100);
+      product.productOffer = percentage;
+  
+      await product.save();
+  
+      return res.json({
+        success: true,
+        message: 'Offer applied successfully',
+        newPrice: product.salePrice
+      });
     } catch (error) {
-        console.error('Error adding product offer:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Internal server error'
-        });
+      console.error('Error adding product offer:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
     }
-};
-
-const removeProductOffer = async (req, res) => {
+  };
+  
+  const removeProductOffer = async (req, res) => {
     try {
-        const { productId } = req.body;
-        
-        const product = await Product.findById(productId);
-        if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
-        }
-
-        // Reset offer and restore original price
+      const { productId } = req.body;
+      const product = await Product.findById(productId);
+  
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: 'Product not found'
+        });
+      }
+  
+      // Revert to original sale price before offer
+      if (product.productOffer > 0) {
+        const originalSalePrice = product.salePrice / (1 - product.productOffer/100);
+        product.salePrice = originalSalePrice;
         product.productOffer = 0;
-        product.salePrice = product.regularPrice;
-        await product.save();
-
-        return res.json({
-            success: true,
-            message: 'Product offer removed successfully'
-        });
+      }
+  
+      await product.save();
+  
+      return res.json({
+        success: true,
+        message: 'Offer removed successfully',
+        originalPrice: product.salePrice
+      });
     } catch (error) {
-        console.error('Error removing product offer:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Internal server error'
-        });
+      console.error('Error removing product offer:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
     }
-};
+  };
 
 module.exports ={
     getProductAddPage,
