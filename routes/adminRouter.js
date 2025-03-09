@@ -28,27 +28,27 @@ const auth=require('../middleware/admin/auth')
 
 
 
-router.get('/login',auth.adminIsLogin,adminController.loadLogin);
+router.get('/login',auth.adminAlreadyLoggedIn,adminController.loadLogin);
 router.post('/login',adminController.login)
-router.get('/',auth.admincheckSession,adminController.loadDashboard)
+router.get('/dashboard',auth.adminIsLogin,adminController.loadDashboard)
 router.get('/pageError',adminController.pageError)
 router.get('/logout',adminController.logout);
 
 
 
 
-router.get('/users',auth.admincheckSession,customerController.customerInfo)
+router.get('/users',auth.adminIsLogin,customerController.customerInfo)
 router.get('/blockCustomer',auth.admincheckSession,customerController.blockCustomer);
 router.get('/unblockCustomer',auth.admincheckSession,customerController.unblockCustomer)
 
 
-router.get('/category',auth.admincheckSession,categoryController.categoryInfo)
-router.post('/addCategory',auth.admincheckSession,categoryController.addCategory)
-router.post('/addCategoryOffer',auth.admincheckSession,categoryController.addCategoryOffer);
-router.post('/removeCategoryoffer',auth.admincheckSession,categoryController.removeCategoryoffer);
-router.get('/listCategory',auth.admincheckSession,categoryController.getListCategory)
-router.get('/unlistCategory',auth.admincheckSession,categoryController.getUnlistCategory)
-router.get('/editCategory',auth.admincheckSession,categoryController.getEditCategory);
+router.get('/category',auth.adminIsLogin,categoryController.categoryInfo)
+router.post('/addCategory',auth.adminIsLogin,categoryController.addCategory)
+router.post('/addCategoryOffer',auth.adminIsLogin,categoryController.addCategoryOffer);
+router.post('/removeCategoryoffer',auth.adminIsLogin,categoryController.removeCategoryoffer);
+router.get('/listCategory',auth.adminIsLogin,categoryController.getListCategory)
+router.get('/unlistCategory',auth.adminIsLogin,categoryController.getUnlistCategory)
+router.get('/editCategory',auth.adminIsLogin,categoryController.getEditCategory);
 router.post('/editCategory/:id', auth.admincheckSession, categoryController.editCategory);
 
 router.get('/addProducts',auth.admincheckSession,productController.getProductAddPage);
@@ -58,6 +58,8 @@ router.post('/blockProduct',auth.admincheckSession, productController.blockProdu
 router.post('/unblockProduct',auth.admincheckSession, productController.unblockProduct);
 router.get('/editProduct/:id', auth.admincheckSession, productController.getEditProduct);
 router.post('/editProduct/:id', auth.admincheckSession, uploads.array('images', 4), productController.editProduct);
+router.post('/addProductOffer', productController.addProductOffer);
+router.post('/removeProductOffer', productController.removeProductOffer);
 
 
 router.get('/orders', auth.admincheckSession, orderController.listOrders);
@@ -67,5 +69,3 @@ router.post('/verify-return-request', auth.admincheckSession, orderController.ve
 
 
 module.exports =router;
-
-

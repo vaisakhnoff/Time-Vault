@@ -19,26 +19,29 @@ const admincheckSession = (req,res,next)=>{
     })
 }
 
-
+const adminAlreadyLoggedIn = (req, res, next) => {
+    if (req.session.admin) {
+      // If admin is already logged in, redirect to the dashboard
+      return res.redirect('/admin/dashboard');
+    }
+    next();
+  };
+  
 
 
 
 const adminIsLogin = async (req, res, next) => {
-    try {
-        if (req.session.admin) {
-            res.redirect('/admin'); 
-        } else {
-            next(); 
-        }
-    } catch (error) {
-        console.log(error.message);
-        res.redirect('/admin/pageError');
-    }
+    if (req.session.admin) {
+        next() 
+    } else {
+        res.redirect('/admin/login');
+    }  
 }
-  
- 
+
 
 module.exports={
     admincheckSession,
-    adminIsLogin
+    adminIsLogin,
+    adminAlreadyLoggedIn
+    
 }

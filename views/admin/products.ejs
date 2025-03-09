@@ -31,6 +31,42 @@
     .text-muted {
         color: #6c757d;
     }
+    /* Add to existing styles */
+.table {
+  table-layout: fixed;
+}
+
+.table td {
+  vertical-align: middle;
+  word-wrap: break-word;
+}
+
+.badge {
+  font-size: 0.85em;
+  padding: 0.35em 0.65em;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-radius: 0.2rem;
+}
+
+/* Standardize button sizes */
+.action-btn {
+    width: 100px !important;
+    margin: 2px;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn-group-action {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
 </style>
 </head>
 
@@ -63,49 +99,89 @@
     <div class="card-body p-0">
       <table class="table table-striped mb-0">
         <thead>
-          <tr>
-            <th scope="col">Product name</th>
-            <th scope="col">Brand</th>
-            <th scope="col">Category</th>
-            <th scope="col">Sale Price</th>
-            <th scope="col">Offer Price</th>
-            <th scope="col">Offer</th>
-            <th scope="col">Quantity</th>
-            <!-- Give the Action column some width -->
-            <th scope="col" style="width: 180px;">Action</th>
-            <!-- Give the Edit column its own width -->
-            <th scope="col" style="width: 100px;">Edit</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% products.forEach(function(product) { %>
-            <tr>
-              <td><%= product.productName %></td>
-              <td>
-                <%= product.brand ? product.brand : "Brand A" %>
-              </td>
-              <td><%= product.description %></td>
-              <td><%= product.regularPrice %></td>
-              <td><%= product.salePrice %></td>
-              <td>
-                <button class="btn btn-info btn-sm me-1" style="width: 80px;">Add</button>
-                <button class="btn btn-info btn-sm" style="width: 80px;">Remove</button>
-              </td>
-              <td><%= product.quantity %></td>
-              <td>
-                <% if(product.isBlocked){ %>
-                  <button class="btn btn-success btn-sm unblock-button" data-id="<%= product._id %>" style="width: 80px;">Unblock</button>
-                <% } else { %>
-                  <button class="btn btn-danger btn-sm block-button" data-id="<%= product._id %>" style="width: 80px;">Block</button>
-                <% } %>
-              </td>
-              <td>
-                <a href="/admin/editProduct/<%= product._id %>" class="btn btn-info btn-sm" style="width: 80px;">Edit</a>
-              </td>
-            </tr>
-          <% }); %>
-        </tbody>
+         
        
+       <!-- Corrected table header -->
+<thead>
+  <tr>
+    <th>Product name</th>
+    <th>Brand</th>
+    <th>Category</th>
+    <th>Regular Price</th>
+    <th>Sale Price</th>
+    <th>Offer</th>
+    <th>Quantity</th>
+    <th style="width: 180px;">Action</th>
+    <th style="width: 100px;">Edit</th>
+  </tr>
+</thead>
+
+<!-- Corrected table body -->
+<tbody>
+  <% products.forEach(function(product) { %>
+    <tr>
+      <td><%= product.productName %></td>
+      <td><%= product.brand || "N/A" %></td>
+      <td><%= product.category?.name || "Uncategorized" %></td>
+      <td>₹<%= product.regularPrice %></td>
+      <td>₹<%= product.salePrice %></td>
+      <td id="offer-value-<%= product._id %>">
+        <% if(product.category?.categoryOffer) { %>
+          <span class="badge bg-info">Category Offer: <%= product.category.categoryOffer %>%</span>
+        <% } else if(product.productOffer) { %>
+          <%= product.productOffer %>%
+        <% } else { %>
+          0%
+        <% } %>
+      </td>
+      <td><%= product.quantity %></td>
+      <!-- Replace the existing offer action buttons -->
+      <!-- Update the table body section -->
+<td>
+  <div class="btn-group-action">
+    <!-- Status Button -->
+    <% if(product.isBlocked){ %>
+      <button class="btn btn-success btn-sm action-btn unblock-button" data-id="<%= product._id %>">
+        Unblock
+      </button>
+    <% } else { %>
+      <button class="btn btn-danger btn-sm action-btn block-button" data-id="<%= product._id %>">
+        Block
+      </button>
+    <% } %>
+
+    <!-- Offer Button -->
+    <% if(product.category?.categoryOffer) { %>
+      <button class="btn btn-secondary btn-sm action-btn" 
+              onclick="showCategoryOfferAlert('<%= product.category.categoryOffer %>')">
+        Has Offer
+      </button>
+    <% } else { %>
+      <% if(product.productOffer) { %>
+        <button class="btn btn-danger btn-sm action-btn" 
+                data-id="<%= product._id %>"
+                onclick="removeProductOffer('<%= product._id %>')">
+          Remove Offer
+        </button>
+      <% } else { %>
+        <button class="btn btn-success btn-sm action-btn" 
+                data-id="<%= product._id %>"
+                onclick="addProductOffer('<%= product._id %>')">
+          Add Offer
+        </button>
+      <% } %>
+    <% } %>
+  </div>
+</td>
+<td>
+  <!-- Edit Button in its own column -->
+  <a href="/admin/editProduct/<%= product._id %>" class="btn btn-info btn-sm action-btn">
+    Edit
+  </a>
+</td>
+    </tr>
+  <% }); %>
+</tbody>
       </table>
     </div>
   </div>
@@ -240,7 +316,128 @@
   });
   </script>
   
-  
+<!-- Replace the existing offer management scripts with this unified version -->
+<script>
+// Replace the existing handleProductOffer function
+async function handleProductOffer(action, productId) {
+    try {
+        // If adding offer, show input dialog
+        let percentage;
+        if (action === 'add') {
+            const result = await Swal.fire({
+                title: 'Enter Offer Percentage',
+                input: 'number',
+                inputLabel: 'Offer Percentage',
+                inputPlaceholder: 'Enter percentage (1-99)',
+                showCancelButton: true,
+                inputValidator: (value) => {
+                    if (!value || value < 1 || value > 99) {
+                        return 'Please enter a valid percentage between 1 and 99';
+                    }
+                }
+            });
+
+            if (!result.isConfirmed) return;
+            percentage = result.value;
+        }
+
+        // Confirm before removing
+        if (action === 'remove') {
+            const result = await Swal.fire({
+                title: 'Remove Offer',
+                text: 'Are you sure you want to remove this offer?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, remove it!'
+            });
+
+            if (!result.isConfirmed) return;
+        }
+
+        // Make API call
+        const url = `/admin/${action}ProductOffer`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                productId,
+                ...(percentage && { percentage })
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update UI without page reload
+            const offerValueElement = document.getElementById(`offer-value-${productId}`);
+            const buttonContainer = document.querySelector(`button[data-id="${productId}"]`).parentElement;
+            
+            if (action === 'add') {
+                offerValueElement.textContent = `${percentage}%`;
+                buttonContainer.innerHTML = `
+                    <button class="btn btn-danger btn-sm action-btn" 
+                            data-id="${productId}"
+                            onclick="removeProductOffer('${productId}')">
+                        Remove Offer
+                    </button>`;
+            } else {
+                offerValueElement.textContent = '0%';
+                buttonContainer.innerHTML = `
+                    <button class="btn btn-success btn-sm action-btn" 
+                            data-id="${productId}"
+                            onclick="addProductOffer('${productId}')">
+                        Add Offer
+                    </button>`;
+            }
+
+            await Swal.fire({
+                icon: 'success',
+                title: `Offer ${action === 'add' ? 'Added' : 'Removed'} Successfully`,
+                text: data.message,
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } else {
+            throw new Error(data.message || `Failed to ${action} offer`);
+        }
+    } catch (error) {
+        console.error(`Error ${action}ing offer:`, error);
+        await Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message || `An error occurred while ${action}ing the offer`
+        });
+    }
+}
+
+// Category offer alert function
+function showCategoryOfferAlert(categoryOfferValue) {
+    Swal.fire({
+        icon: 'info',
+        title: 'Category Offer Active',
+        html: `
+            <div class="text-center">
+                <p>This product already has a category offer of <b>${categoryOfferValue}%</b> applied.</p>
+                <p class="text-muted">Product-specific offers cannot be added when a category offer is active.</p>
+            </div>
+        `,
+        confirmButtonText: 'Understood',
+        confirmButtonColor: '#3085d6'
+    });
+}
+
+// Simple wrapper functions for backwards compatibility
+function addProductOffer(productId) {
+    handleProductOffer('add', productId);
+}
+
+function removeProductOffer(productId) {
+    handleProductOffer('remove', productId);
+}
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10/dist/sweetalert2.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <%- include("../../views/partials/admin/footer") %>
