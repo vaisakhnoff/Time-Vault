@@ -25,13 +25,15 @@ const orderController = require('../controllers/admin/orderController');
 const productController = require('../controllers/admin/productController')
 const auth=require('../middleware/admin/auth')
 const couponController = require('../controllers/admin/couponController');
+const dashboardController = require('../controllers/admin/dashboardController');
+
 
 
 
 
 router.get('/login',auth.adminAlreadyLoggedIn,adminController.loadLogin);
 router.post('/login',adminController.login)
-router.get('/dashboard',auth.adminIsLogin,adminController.loadDashboard)
+// router.get('/dashboard',auth.adminIsLogin,adminController.loadDashboard)
 router.get('/pageError',adminController.pageError)
 router.get('/logout',adminController.logout);
 
@@ -73,5 +75,8 @@ router.get('/order/:id', auth.admincheckSession, orderController.viewOrderDetail
 router.post('/update-order-status', auth.admincheckSession, orderController.updateOrderStatus);
 router.post('/verify-return-request', auth.admincheckSession, orderController.verifyReturnRequest);
 
+router.get('/dashboard', auth.adminIsLogin, dashboardController.getDashboardStats);
+router.get('/sales-report', auth.adminIsLogin, dashboardController.generateSalesReport);
+router.get('/download-report', auth.adminIsLogin, dashboardController.downloadSalesReport);
 
 module.exports =router;

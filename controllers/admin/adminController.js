@@ -31,7 +31,8 @@ const login = async (req, res) => {
         
         if (passwordMatch) {
             req.session.admin = admin._id; // Store admin ID in session
-            return res.render('dashboard');
+            // return res.render('dashboard');
+            return res.redirect('/admin/dashboard');
         } else {
             return res.redirect('/admin/login');
         }
@@ -45,7 +46,8 @@ const loadDashboard = async(req,res)=>{
    if(req.session.admin){
    
     try {
-        res.render('dashboard')
+        res.redirect('/admin/dashboard');
+        // res.render('dashboard')
     } catch (error) {
         res.redirect('/login')
     }

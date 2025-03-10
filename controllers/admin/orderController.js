@@ -53,13 +53,37 @@ const viewOrderDetails = async (req, res) => {
       .populate('user', 'firstName lastName email phone')
       .populate('items.productId', 'productName productImage salePrice')
       .lean();
-      const userId = req.session.user;
-      const address = await Address.findOne({ userId: userId }).lean();
+      //console.log("order",order);
+    
+      const userId = order.user._id;
+      console.log("userId",userId);
+      // const address = await Address.find({ userId: userId }).lean();
+      // console.log("address",address);
+      
+      const addressDoc = await Address.findOne({ userId: userId }).lean();
+      console.log("1",addressDoc); // Debugging line
+      
+          let selectedAddress = null;
+      
+      
+          if (addressDoc && addressDoc.address && order.address) {
+            console.log("Order address value:", order.address.toString());
+            console.log("User Addresses:", addressDoc.address.map(addr => addr._id.toString()));
+            selectedAddress = addressDoc.address.find(addr =>
+              addr._id.toString() === order.address.toString()
+            );
+          }
+      
+          console.log("Selected Address:", selectedAddress); //       
+
+
+
+
 
     if (!order) return res.redirect('/admin/orders');
 
     res.render('orderDetail', { order,
-        address:address,
+        address:selectedAddress
 
      });
   } catch (error) {

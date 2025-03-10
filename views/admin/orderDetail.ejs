@@ -26,19 +26,24 @@
       <p>
         <strong>Name: </strong> <%= order.user.firstName %> <%= order.user.lastName %> <br>
         <strong>Email: </strong> <%= order.user.email %> <br>
-        <strong>Phone: </strong> <%= order.user.phone %>
       </p>
       
       <!-- Shipping Address -->
-      <% if (address) { %>
-      <h6>Shipping Address</h6>
-      <p>
-        <strong>Name: </strong> <%= address.firstName %> <br>
-        <strong>Address: </strong> <%= address.addressLine1 %>, <%= address.addressLine2 %> <br>
-        <strong>City: </strong> <%= address.city %>, <strong>State: </strong> <%= address.state %> <br>
-        <strong>PIN: </strong> <%= address.pincode %> <br>
-        <strong>Phone: </strong> <%= address.phone_no %>
-      </p>
+      <% if (order.address) { %>
+        <h6>Shipping Address</h6>
+        <p>
+          <strong>Name: </strong> <%= address.name %> <br>
+          <strong>Address Type: </strong> <%= address.addressType || '' %>  <br
+          <strong>City: </strong> <%= address.city %> <br>
+          <strong>State: </strong> <%= address.state %> <br>
+          <strong>PIN: </strong> <%= address.pincode %> <br>
+          <strong>Phone: </strong> <%= address.phone_no %>
+          <% if (address.altPhone_no) { %>
+            <br><strong>Alternative Phone: </strong> <%= address.altPhone_no %>
+          <% } %>
+        </p>
+      <% } else { %>
+        <p>No shipping address available</p>
       <% } %>
       
       <!-- Order Summary -->
@@ -111,7 +116,7 @@
             <tr>
               <td><%= item.productId.productName %></td>
               <td>
-                <img src="<%= item.productId.productImage[1] %>" alt="<%= item.productId.productName %>" style="width:10px; height: 10px; object-fit: cover;">
+                <img src="/uploads/product-images/<%= item.productId.productImage[0] %>"  alt="<%= item.productId.productName %>" style="width:100px; height: 100px; object-fit: cover ; padding-top: 30px;">
               </td>
               <td>₹<%= item.price %></td>
               <td><%= item.quantity %></td>

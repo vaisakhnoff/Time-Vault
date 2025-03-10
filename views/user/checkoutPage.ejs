@@ -10,6 +10,7 @@
     <!-- Product Details Section -->
     <div class="cart_products">
       <h2>Your Cart Items</h2>
+      <% let total = 0; %>
       <% if (cart && cart.items && cart.items.length > 0) { %>
         <table class="table table-bordered">
           <thead>
@@ -35,6 +36,7 @@
                 <td><%= item.quantity %></td>
                 <td>₹<%= item.productId.salePrice.toFixed(2) %></td>
                 <td>₹<%= (item.productId.salePrice * item.quantity).toFixed(2) %></td>
+                <% total += item.productId.salePrice * item.quantity; %>
               </tr>
             <% }); %>
           </tbody>
@@ -42,6 +44,46 @@
       <% } else { %>
         <p>No items in your cart.</p>
       <% } %>
+    </div>
+
+    <!-- Coupon Section -->
+    <div class="coupon-section mt-4">
+      <h3>Apply Coupon</h3>
+      <% if (coupon) { %>
+        <div>
+          <p>Coupon "<strong><%= coupon.name %></strong>" applied. Discount: ₹<%= coupon.offerPrice %></p>
+          <button id="remove-coupon-btn" class="btn btn-secondary btn-sm">Remove Coupon</button>
+        </div>
+      <% } else { %>
+        <div class="row">
+          <div class="col-md-6">
+            <% if (availableCoupons && availableCoupons.length > 0) { %>
+              <select id="coupon-select" class="form-select" style="max-width:300px; display:inline-block;">
+                <option value="">Select a coupon</option>
+                <% availableCoupons.forEach(function(availableCoupon) { %>
+                  <option value="<%= availableCoupon.name %>">
+                    <%= availableCoupon.name %> - Save ₹<%= availableCoupon.offerPrice %> on min purchase of ₹<%= availableCoupon.minimumPrice %>
+                  </option>
+                <% }); %>
+              </select>
+              <button id="apply-coupon-btn" class="btn btn-primary btn-sm ms-2">Apply Coupon</button>
+            <% } else { %>
+              <p class="text-muted">No coupons available for your cart value.</p>
+            <% } %>
+          </div>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Total Breakdown Section -->
+    <div class="order-summary mt-4">
+      <h3>Order Summary</h3>
+      <p>Cart Total: ₹<%= total.toFixed(2) %></p>
+      <% let discount = coupon ? coupon.offerPrice : 0; %>
+      <% let grandTotal = total - discount; %>
+      <p>Coupon Discount: ₹<%= discount.toFixed(2) %></p>
+      <hr>
+      <h4>Grand Total: ₹<%= grandTotal.toFixed(2) %></h4>
     </div>
 
     <!-- Order Form (Address + Payment Method) -->
@@ -134,8 +176,9 @@
   </div>
 </section>
 
-<!-- Include Razorpay Checkout script -->
+<!-- Include Razorpay Checkout script and SweetAlert2 -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
   // Function to delete an address
@@ -165,6 +208,54 @@
       });
     }
   }
+
+  // Apply Coupon
+  document.getElementById('apply-coupon-btn')?.addEventListener('click', async function(){
+    const couponSelect = document.getElementById('coupon-select');
+    const couponCode = couponSelect.value;
+    
+    if (!couponCode) {
+      Swal.fire('Error', 'Please select a coupon', 'error');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/applyCoupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ couponCode })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        Swal.fire('Success', data.message, 'success').then(() => location.reload());
+      } else {
+        Swal.fire('Error', data.message, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Swal.fire('Error', 'Something went wrong!', 'error');
+    }
+  });
+
+  // Remove Coupon
+  document.getElementById('remove-coupon-btn')?.addEventListener('click', async function(){
+    try {
+      const response = await fetch('/removeCoupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      if (data.success) {
+        Swal.fire('Success', data.message, 'success').then(() => location.reload());
+      } else {
+        Swal.fire('Error', data.message, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Swal.fire('Error', 'Something went wrong!', 'error');
+    }
+  });
 
   // Listen to the form submit event for payment processing
   document.getElementById('checkout-form').addEventListener('submit', async function(e) {
@@ -225,5 +316,25 @@
     }
   });
 </script>
+
+<style>
+.coupon-section select {
+  padding: 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background-color: #fff;
+  min-width: 250px;
+}
+
+.coupon-section select:focus {
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.coupon-section .btn {
+  vertical-align: baseline;
+}
+</style>
 
 <%- include("../../views/partials/user/footer") %>

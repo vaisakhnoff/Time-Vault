@@ -139,45 +139,48 @@
            </body>
          </form>
        </div>
-       <div class="col-md-7 ml-105">
-         <div class="table-responsive">
-             <table class="table table-hover">
-                 <thead>
-                     <tr>
-                         <th>Name</th>
-                         <th>Created On</th>
-                         <th>Expire On</th>
-                         <th>Offer Price</th>
-                         <th>Minimum Price</th>
-                         <th>Status</th>
-                         <th>Edit/Delete</th>
-                     </tr>
-                 </thead>
-                 <tbody>
-    <% if(coupons && coupons.length > 0) { %>
-        <% coupons.forEach(function(coupon) { %>
+       <!-- Coupons Table (right panel) -->
+    <div class="col-md-7 ml-105">
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
             <tr>
-                <td class="text-start"><%= coupon.name %></td>
-                <td class="text-start"><%= new Date(coupon.createdOn).toLocaleDateString() %></td>
-                <td class="text-start"><%= new Date(coupon.expireOn).toLocaleDateString() %></td>
-                <td class="text-start">₹<%= coupon.offerPrice %></td>
-                <td class="text-start">₹<%= coupon.minimumPrice %></td>
-                <td class="text-start"><%= coupon.isList ? 'Active' : 'Inactive' %></td>
-                <td class="text-start">
+              <th>Name</th>
+              <th>Created On</th>
+              <th>Expire On</th>
+              <th>Offer Price</th>
+              <th>Minimum Price</th>
+              <th>Status</th>
+              <th>Edit/Delete</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if(coupons && coupons.length > 0) { %>
+              <% coupons.forEach(function(coupon) { %>
+                <tr>
+                  <td class="text-start"><%= coupon.name %></td>
+                  <td class="text-start"><%= new Date(coupon.createdOn).toLocaleDateString() %></td>
+                  <td class="text-start"><%= new Date(coupon.expireOn).toLocaleDateString() %></td>
+                  <td class="text-start">₹<%= coupon.offerPrice %></td>
+                  <td class="text-start">₹<%= coupon.minimumPrice %></td>
+                  <td class="text-start"><%= coupon.isList ? 'Active' : 'Inactive' %></td>
+                  <td class="text-start">
                     <a href="/admin/editCoupon?id=<%= coupon._id %>" class="btn btn-primary btn-sm">Edit</a>
                     <button onclick="confirmDelete('<%= coupon._id %>')" class="btn btn-danger btn-sm" style="height: 35px;width: 105px;">Delete</button>
-                </td>
-            </tr>
-        <% }); %>
-    <% } else { %>
-        <tr>
-            <td colspan="7" class="text-center">No coupons found</td>
-        </tr>
-    <% } %>
-</tbody>
-             </table>
-         </div>
-     </div>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="7" class="text-center">No coupons found</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
      </div>
    </div>
  </div>
@@ -339,17 +342,6 @@ document.querySelector('form').addEventListener('submit', async function(e) {
         });
     }
 });
-
-// In couponController.js
-const couponInfo = async (req, res) => {
-    try {
-        const coupons = await Coupon.find().sort({ createdOn: -1 });
-        res.render('coupon', { coupons });
-    } catch (error) {
-        console.error('Error fetching coupons:', error);
-        res.redirect('/pageError');
-    }
-};
 </script>
 <%- include("../../views/partials/admin/footer") %>
 

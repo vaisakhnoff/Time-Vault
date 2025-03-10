@@ -76,7 +76,8 @@ router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
 router.get('/wallet',auth.checkSession,walletController.wallet);
 router.get('/referal',auth.checkSession,profileController.getReferrals);
 
-
+router.post('/applyCoupon', cartController.applyCoupon);
+router.post('/removeCoupon', cartController.removeCoupon);
 
 
 module.exports =router;

@@ -5,6 +5,7 @@ const User = require('../../models/userschema');
 const Razorpay = require('razorpay');
 const Cart = require('../../models/cartSchema');
 const crypto = require('crypto');
+const WalletTransaction = require('../../models/walletSchema');  // add this line
 
 const instance = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,         
@@ -68,7 +69,7 @@ const cancelOrder = async (req, res) => {
       return res.redirect(`/order/${orderId}?error=Cancellation not allowed at this stage`);
     }
     
-   
+    // Restore product quantity
     for (const item of order.items) {
       const product = await Product.findById(item.productId);
       if (product) {
@@ -83,30 +84,33 @@ const cancelOrder = async (req, res) => {
       Cancelled: new Date()
     };
 
+    // Process refund only for online orders which received payment
+    if (order.paymentMethod === 'Online' && order.paymentStatus === 'Completed') {
+      const user = await User.findById(order.user);
+      if (user) {
+        // Add refunded amount to user's wallet
+        user.wallet = (user.wallet || 0) + order.totalAmount;
+        console.log("User wallet updated:", user.wallet);
+        await user.save();
 
-
-    const user = await User.findById(order.user);
-    if (user) {
-      user.wallet = (user.wallet || 0) + order.totalAmount;
-      console.log("User wallet updated:", user.wallet);
-      
-      await user.save();
+        // Record the wallet transaction
+        const walletTx = new WalletTransaction({
+          userId: order.user,
+          amount: order.totalAmount,
+          type: "Credit",
+          description: "Refund for cancelled online order"
+        });
+        await walletTx.save();
+      }
     }
-
-
-
-
-    await order.save();
     
+    await order.save();
     res.redirect(`/order/${orderId}`);
   } catch (error) {
     console.error('Error cancelling order:', error);
     res.redirect('/pageNotFound');
   }
 };
-
-
-
 
 const submitReview = async (req, res) => {
   try {
@@ -174,32 +178,39 @@ const requestReturnOrder = async (req, res) => {
 
 const createOnlineOrder = async (req, res) => {
   try {
-      const userId = req.session.user;
-      const { addressId } = req.body;
-      
-      const cart = await Cart.findOne({ userId }).populate('items.productId');
-      if (!cart || cart.items.length === 0) {
-          return res.status(400).json({ error: 'Cart is empty' });
-      }
-      // Calculate total (assumes product.salePrice is in rupees)
-      const totalAmount = cart.items.reduce((total, item) => {
-          return total + item.productId.salePrice * item.quantity;
-      }, 0);
-      // Convert to paise (multiply by 100)
-      const amountInPaise = totalAmount * 100;
-      
-      const options = {
-          amount: amountInPaise,
-          currency: 'INR',
-          receipt: 'receipt_order_' + Date.now()
-      };
+    const userId = req.session.user;
+    const { addressId } = req.body;
+    
+    const cart = await Cart.findOne({ userId }).populate('items.productId');
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+    
+    // Calculate cart total
+    let totalAmount = cart.items.reduce((total, item) => {
+      return total + item.productId.salePrice * item.quantity;
+    }, 0);
+    
+    // Subtract coupon discount if applied
+    let couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
+    let discountedTotal = totalAmount - couponDiscount;
+    if (discountedTotal < 0) discountedTotal = 0;
 
-      const orderData = await instance.orders.create(options);
-      // You may store orderData along with cart details temporarily if needed.
-      return res.json({ orderData });
+    // Convert to paise (multiply by 100)
+    const amountInPaise = discountedTotal * 100;
+    
+    const options = {
+      amount: amountInPaise,
+      currency: 'INR',
+      receipt: 'receipt_order_' + Date.now()
+    };
+
+    const orderData = await instance.orders.create(options);
+    // Order data will be used later upon payment confirmation.
+    return res.json({ orderData });
   } catch (error) {
-      console.error('Error creating online order:', error);
-      return res.status(500).json({ error: 'Unable to create order' });
+    console.error('Error creating online order:', error);
+    return res.status(500).json({ error: 'Unable to create order' });
   }
 };
 
@@ -214,12 +225,16 @@ const onlinePaymentSuccess = async (req, res) => {
           return res.status(400).json({ error: 'Cart is empty' });
       }
 
-      // Calculate total amount (in rupees)
+      // Calculate total from salePrice
       const totalAmount = cart.items.reduce((total, item) => {
           return total + item.productId.salePrice * item.quantity;
       }, 0);
       
-      // Create the order document using cart details
+      // Subtract coupon discount if applied
+      let couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
+      let discountedTotal = totalAmount - couponDiscount;
+      if (discountedTotal < 0) discountedTotal = 0;
+
       const order = new Order({
           user: userId,
           items: cart.items.map(item => ({
@@ -231,24 +246,22 @@ const onlinePaymentSuccess = async (req, res) => {
           address: addressId,
           paymentMethod: 'Online',
           paymentStatus: 'Completed',
-          totalAmount: totalAmount,
+          totalAmount: discountedTotal,
           orderStatus: 'Pending'
       });
       await order.save();
 
-      // Decrease each product's quantity by the purchased amount
+      // Decrease each product's quantity
       for (const item of cart.items) {
-          await Product.findByIdAndUpdate(
-              item.productId._id, 
-              { $inc: { quantity: -item.quantity } }
-          );
+          await Product.findByIdAndUpdate(item.productId._id, { $inc: { quantity: -item.quantity } });
       }
 
-      // Empty the cart
+      // Empty the cart and clear coupon
       cart.items = [];
       await cart.save();
+      req.session.coupon = undefined;
 
-      // Store the order ID in session for orderSuccess page to display
+      // Store order ID in session to display on orderSuccess page
       req.session.lastOrderId = order._id;
 
       return res.json({ success: true });
@@ -264,7 +277,7 @@ module.exports = {
   cancelOrder,
   submitReview,
   // verifyReturnRequest,
-  requestReturnOrder,  // new function
+  requestReturnOrder, 
   createOnlineOrder,
   onlinePaymentSuccess
 };
