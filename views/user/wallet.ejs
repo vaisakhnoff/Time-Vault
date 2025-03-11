@@ -114,6 +114,33 @@
       padding: 8px 12px;
       border-radius: 4px;
     }
+
+    .pagination {
+  display: flex;
+  justify-content: center; /* Ensures proper centering */
+  align-items: center;
+  margin-top: 20px;
+  gap: 5px; /* Adds spacing between buttons */
+}
+
+.pagination a, 
+.pagination span {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  text-decoration: none;
+  color: #333;
+  border-radius: 4px; /* Rounded edges for better UI */
+  min-width: 35px;
+  text-align: center;
+}
+
+.pagination .current-page {
+  background-color: #333;
+  color: #fff;
+  border-color: #333;
+}
+
   </style>
   
   <!-- Wallet Area -->

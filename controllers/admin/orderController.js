@@ -53,15 +53,16 @@ const viewOrderDetails = async (req, res) => {
       .populate('user', 'firstName lastName email phone')
       .populate('items.productId', 'productName productImage salePrice')
       .lean();
-      //console.log("order",order);
+     
     
       const userId = order.user._id;
       console.log("userId",userId);
+
       // const address = await Address.find({ userId: userId }).lean();
       // console.log("address",address);
       
       const addressDoc = await Address.findOne({ userId: userId }).lean();
-      console.log("1",addressDoc); // Debugging line
+      
       
           let selectedAddress = null;
       
@@ -74,7 +75,7 @@ const viewOrderDetails = async (req, res) => {
             );
           }
       
-          console.log("Selected Address:", selectedAddress); //       
+          console.log("Selected Address:", selectedAddress);     
 
 
 
@@ -115,7 +116,7 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Update payment status to Completed when order is delivered for COD orders
+   
     if (newStatus === 'Delivered' && order.paymentMethod === 'COD') {
       order.paymentStatus = 'Completed';
     }
@@ -155,9 +156,10 @@ const verifyReturnRequest = async (req, res) => {
         icon: 'error'
       });
     }
+  
 
     if (approve === 'true' || approve === true) {
-      // Process return approval
+      
       for (const item of order.items) {
         const product = item.productId;
         if (product) {
@@ -166,12 +168,12 @@ const verifyReturnRequest = async (req, res) => {
         }
       }
 
-      // Update user's wallet (refund)
+      
       const refundAmount = order.totalAmount;
       order.user.wallet = (order.user.wallet || 0) + refundAmount;
       await order.user.save();
 
-      // Create a wallet transaction record for the refund
+      
       const walletTransaction = new WalletTransaction({
         userId: order.user._id,
         amount: refundAmount,
@@ -194,7 +196,9 @@ const verifyReturnRequest = async (req, res) => {
         icon: 'success'
       });
     } else {
-      // Process return decline
+      
+
+      
       order.orderStatus = 'Return Declined';
       order.statusUpdates = order.statusUpdates || {};
       order.statusUpdates['Return Declined'] = new Date();

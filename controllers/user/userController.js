@@ -158,7 +158,7 @@ const signUp = async(req,res)=>{
             return res.render('signup',{message:"User with this email already exists"});
         }
 
-        // Generate a unique referral code
+       
         let newReferralCode;
         let isUnique = false;
         while (!isUnique) {
@@ -171,7 +171,7 @@ const signUp = async(req,res)=>{
             }
         }
 
-        // If a referral code is provided, try to find the referrer
+      
         let referrer = null;
         if(referalCode && referalCode.trim() !== ""){
             referrer = await User.findOne({ referalCode: referalCode.trim() });
@@ -180,7 +180,7 @@ const signUp = async(req,res)=>{
             }
         }
 
-        // Generate an OTP and send verification email
+      
         const otp = generateOTP();
         const emailSend = await sendverificationEmail(email, otp);
         
@@ -188,7 +188,7 @@ const signUp = async(req,res)=>{
             return res.json("Email-Error");
         }
 
-        // Store the signup data along with the referral info in session
+        
         req.session.userOtp = otp;
         req.session.userData = { 
             firstName, 
@@ -197,7 +197,7 @@ const signUp = async(req,res)=>{
             email, 
             password, 
             referalCode: referalCode ? referalCode.trim() : null,
-            newReferralCode // Add the generated referral code to the session
+            newReferralCode 
         };
 
         res.render("verify-otp");
@@ -236,13 +236,11 @@ const verifyOtp = async (req, res) => {
                 email: userData.email,
                 phoneNumber: userData.phoneNumber,
                 password: passwordHash,
-                referalCode: userData.newReferralCode // Use the generated referral code
+                referalCode: userData.newReferralCode 
             });
 
-            // Save the new user
             const savedUser = await newUser.save();
 
-            // Handle referral bonus if applicable
             if(userData.referalCode) {
                 const referrer = await User.findOne({ referalCode: userData.referalCode });
                 if(referrer) {
@@ -251,7 +249,7 @@ const verifyOtp = async (req, res) => {
                     referrer.redeemedUsers.push(savedUser._id);
                     await referrer.save();
 
-                    // Create a wallet transaction record for referrer bonus credit
+                   
                     let refTransaction = new WalletTransaction({
                         userId: referrer._id,
                         amount: bonusAmount,
@@ -263,7 +261,7 @@ const verifyOtp = async (req, res) => {
                     savedUser.wallet += bonusAmount;
                     await savedUser.save();
 
-                    // Optionally, create a wallet transaction record for new user bonus credit
+                   
                     let userTransaction = new WalletTransaction({
                         userId: savedUser._id,
                         amount: bonusAmount,
@@ -500,11 +498,11 @@ const sendForgotOtp = async (req, res) => {
         return res.render("forgotPassword", { message: "Email not found" });
       }
   
-      // Generate OTP
+     
       const otp3 =  generateOTP();
       console.log(otp3);
       
-      const otpExpiration = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+      const otpExpiration = Date.now() + 10 * 60 * 1000;
   
      
       req.session.forgotOtp = otp3;
@@ -560,7 +558,7 @@ const sendForgotOtp = async (req, res) => {
       user.password = passwordHash;
       await user.save();
   
-      // Clear the session variables related to forgot password
+      
       req.session.otpVerified = false;
       req.session.forgotOtp = null;
       req.session.forgotEmail = null;

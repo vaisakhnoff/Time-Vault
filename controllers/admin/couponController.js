@@ -157,7 +157,7 @@ const editCoupon = async (req, res) => {
             message: 'Coupon updated successfully'
         });
     } catch (error) {
-        console.error('Error updating coupon:', error);
+        console.error('Error updating coupon:', error) ;
         return res.status(500).json({
             success: false,
             message: 'Internal server error'

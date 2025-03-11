@@ -12,22 +12,22 @@ const { getRandomValues } = require('crypto');
 const getProductInfo = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 0;
-        const perPage = 8; // items per page
+        const perPage = 8; 
         const searchQuery = req.query.search || '';
 
-        // Create search filter
+        
         let query = {};
         if (searchQuery) {
             query.productName = { $regex: searchQuery, $options: 'i' };
         }
 
-        // Get total count for pagination
+      
         const totalProducts = await Product.countDocuments(query);
         const totalPages = Math.ceil(totalProducts / perPage);
 
-        // Get products with pagination and search
         const products = await Product.find(query)
             .populate('category')
+            .select('productName brand category regularPrice salePrice productOffer quantity isBlocked productImage') 
             .sort({ createdAt: -1 })
             .skip(page * perPage)
             .limit(perPage)
@@ -268,24 +268,28 @@ if (req.files && req.files.length > 0) {
         });
       }
   
-      if (product.category?.categoryOffer) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot add product offer when category offer exists'
-        });
-      }
-  
-      // Calculate new price based on current sale price
-      const originalSalePrice = product.salePrice;
-      product.salePrice = originalSalePrice * (1 - percentage/100);
+      
       product.productOffer = percentage;
+  
+     
+      const productOfferDiscount = 1 - percentage/100;
+      const categoryOfferDiscount = product.category?.categoryOffer ? 
+        (1 - product.category.categoryOffer/100) : 1;
+  
+      
+      const finalDiscountFactor = Math.min(productOfferDiscount, categoryOfferDiscount);
+      
+      
+      product.salePrice = product.regularPrice * finalDiscountFactor;
   
       await product.save();
   
       return res.json({
         success: true,
         message: 'Offer applied successfully',
-        newPrice: product.salePrice
+        newPrice: product.salePrice,
+        productOffer: product.productOffer,
+        categoryOffer: product.category?.categoryOffer
       });
     } catch (error) {
       console.error('Error adding product offer:', error);
@@ -299,7 +303,7 @@ if (req.files && req.files.length > 0) {
   const removeProductOffer = async (req, res) => {
     try {
       const { productId } = req.body;
-      const product = await Product.findById(productId);
+      const product = await Product.findById(productId).populate('category');
   
       if (!product) {
         return res.status(404).json({
@@ -308,19 +312,25 @@ if (req.files && req.files.length > 0) {
         });
       }
   
-      // Revert to original sale price before offer
-      if (product.productOffer > 0) {
-        const originalSalePrice = product.salePrice / (1 - product.productOffer/100);
-        product.salePrice = originalSalePrice;
-        product.productOffer = 0;
+      
+      product.productOffer = 0;
+  
+     
+      if (product.category?.categoryOffer) {
+        const categoryOfferDiscount = 1 - product.category.categoryOffer/100;
+        product.salePrice = product.regularPrice * categoryOfferDiscount;
+      } else {
+        product.salePrice = product.regularPrice;
       }
   
       await product.save();
   
       return res.json({
         success: true,
-        message: 'Offer removed successfully',
-        originalPrice: product.salePrice
+        message: 'Product offer removed successfully',
+        newPrice: product.salePrice,
+        productOffer: product.productOffer,
+        categoryOffer: product.category?.categoryOffer
       });
     } catch (error) {
       console.error('Error removing product offer:', error);
@@ -330,6 +340,7 @@ if (req.files && req.files.length > 0) {
       });
     }
   };
+  
 
 module.exports ={
     getProductAddPage,

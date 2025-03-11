@@ -3,7 +3,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const User = require("../models/userschema");
 require('dotenv').config();
 
-// Add the referral code generator function
+
 function generateReferralCode() {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
@@ -20,7 +20,7 @@ passport.use(new GoogleStrategy({
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
-      // Ensure profile.emails exists and has a value
+     
       if (!profile.emails || profile.emails.length === 0) {
         return done(new Error("No email found in the Google profile"), null);
       }
@@ -28,18 +28,17 @@ passport.use(new GoogleStrategy({
       let user = await User.findOne({ googleId: profile.id });
       
       if (user) {
-        // If the user exists but is blocked, signal failure with a message.
+       
         if (user.isBlocked) {
           return done(null, false, { message: "User is blocked by admin" });
         }
         return done(null, user);
       } else {
-        // Split displayName into first and last names
+       
         const nameParts = profile.displayName ? profile.displayName.split(" ") : [];
         const firstName = nameParts[0] || "";
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
-        // Generate a unique referral code for Google signup
         let newReferralCode;
         let isUnique = false;
         while (!isUnique) {
@@ -50,7 +49,7 @@ passport.use(new GoogleStrategy({
             }
         }
 
-        // Create new user with the extracted names and referral code
+        
         user = new User({
           firstName: firstName,
           lastName: lastName,

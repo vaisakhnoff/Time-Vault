@@ -1,7 +1,8 @@
 <%- include("../../views/partials/user/header") %>
 
 <!-- Add a gap between header and order details -->
-<div class="header-gap"></div>
+<div class="header-gap"></div><!-- Spacer to create gap between header and contents -->
+<div style="height: 100px;"></div>
 
 <section class="checkout_page section_gap">
   <div class="container">
@@ -57,7 +58,7 @@
       <% } else { %>
         <div class="row">
           <div class="col-md-6">
-            <% if (availableCoupons && availableCoupons.length > 0) { %>
+             <% if (availableCoupons && availableCoupons.length > 0) { %>
               <select id="coupon-select" class="form-select" style="max-width:300px; display:inline-block;">
                 <option value="">Select a coupon</option>
                 <% availableCoupons.forEach(function(availableCoupon) { %>
@@ -209,8 +210,26 @@
     }
   }
 
-  // Apply Coupon
-  document.getElementById('apply-coupon-btn')?.addEventListener('click', async function(){
+  // Store available coupons on page load
+  const availableCouponsData = <%- JSON.stringify(availableCoupons || []) %>
+
+  // Function to populate coupon dropdown from cache
+  function populateCouponDropdownFromCache() {
+    let options = `<option value="">Select a coupon</option>`;
+    if (availableCouponsData && availableCouponsData.length > 0) {
+      availableCouponsData.forEach(coupon => {
+        options += `<option value="${coupon.name}">
+                      ${coupon.name} - Save ₹${coupon.offerPrice} on min purchase of ₹${coupon.minimumPrice}
+                    </option>`;
+      });
+    } else {
+      options = `<option value="">No coupons available</option>`;
+    }
+    document.getElementById('coupon-select').innerHTML = options;
+  }
+
+  // Handler for applying a coupon
+  async function applyCouponHandler() {
     const couponSelect = document.getElementById('coupon-select');
     const couponCode = couponSelect.value;
     
@@ -228,7 +247,29 @@
       
       const data = await response.json();
       if (data.success) {
-        Swal.fire('Success', data.message, 'success').then(() => location.reload());
+        Swal.fire('Success', data.message, 'success');
+
+        // Update the coupon section with the applied coupon details.
+        document.querySelector('.coupon-section').innerHTML = `
+          <div>
+            <p>Coupon "<strong>${data.coupon.name}</strong>" applied. Discount: ₹${data.coupon.offerPrice}</p>
+            <button id="remove-coupon-btn" class="btn btn-secondary btn-sm">Remove Coupon</button>
+          </div>
+        `;
+
+        // Update the order summary if the server returned updated totals.
+        if (data.cartTotal !== undefined && data.discount !== undefined && data.grandTotal !== undefined) {
+          document.querySelector('.order-summary').innerHTML = `
+            <h3>Order Summary</h3>
+            <p>Cart Total: ₹${parseFloat(data.cartTotal).toFixed(2)}</p>
+            <p>Coupon Discount: ₹${parseFloat(data.discount).toFixed(2)}</p>
+            <hr>
+            <h4>Grand Total: ₹${parseFloat(data.grandTotal).toFixed(2)}</h4>
+          `;
+        }
+
+        // Reattach the event listener for remove coupon.
+        document.getElementById('remove-coupon-btn')?.addEventListener('click', removeCouponHandler);
       } else {
         Swal.fire('Error', data.message, 'error');
       }
@@ -236,10 +277,10 @@
       console.error('Error:', error);
       Swal.fire('Error', 'Something went wrong!', 'error');
     }
-  });
+  }
 
-  // Remove Coupon
-  document.getElementById('remove-coupon-btn')?.addEventListener('click', async function(){
+  // Handler for removing a coupon
+  async function removeCouponHandler() {
     try {
       const response = await fetch('/removeCoupon', {
         method: 'POST',
@@ -247,7 +288,37 @@
       });
       const data = await response.json();
       if (data.success) {
-        Swal.fire('Success', data.message, 'success').then(() => location.reload());
+        Swal.fire('Success', data.message, 'success');
+        
+        // Reset the coupon section to show the coupon selection options.
+        document.querySelector('.coupon-section').innerHTML = `
+          <div class="row">
+            <div class="col-md-6">
+              <select id="coupon-select" class="form-select" style="max-width:300px; display:inline-block;">
+                <option value="">Select a coupon</option>
+                <!-- Populate your coupon options here -->
+              </select>
+              <button id="apply-coupon-btn" class="btn btn-primary btn-sm ms-2">Apply Coupon</button>
+            </div>
+          </div>
+        `;
+
+        // Populate the coupon dropdown from cache
+        populateCouponDropdownFromCache();
+
+        // Update the order summary to remove the discount.
+        if (data.cartTotal !== undefined && data.grandTotal !== undefined) {
+          document.querySelector('.order-summary').innerHTML = `
+            <h3>Order Summary</h3>
+            <p>Cart Total: ₹${parseFloat(data.cartTotal).toFixed(2)}</p>
+            <p>Coupon Discount: ₹0.00</p>
+            <hr>
+            <h4>Grand Total: ₹${parseFloat(data.grandTotal).toFixed(2)}</h4>
+          `;
+        }
+
+        // Reattach the event listener for apply coupon.
+        document.getElementById('apply-coupon-btn')?.addEventListener('click', applyCouponHandler);
       } else {
         Swal.fire('Error', data.message, 'error');
       }
@@ -255,7 +326,11 @@
       console.error('Error:', error);
       Swal.fire('Error', 'Something went wrong!', 'error');
     }
-  });
+  }
+
+  // Attach event listeners on initial load if the buttons exist.
+  document.getElementById('apply-coupon-btn')?.addEventListener('click', applyCouponHandler);
+  document.getElementById('remove-coupon-btn')?.addEventListener('click', removeCouponHandler);
 
   // Listen to the form submit event for payment processing
   document.getElementById('checkout-form').addEventListener('submit', async function(e) {

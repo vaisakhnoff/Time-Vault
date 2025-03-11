@@ -228,7 +228,7 @@ const updateProfile = async (req, res) => {
     try {
         const userId = req.session.user;
         
-        // Get the base64 image from the form
+        
         const base64Image = req.body.croppedImage;
         
         if (!base64Image) {
@@ -238,18 +238,18 @@ const updateProfile = async (req, res) => {
             });
         }
 
-        // Convert base64 to buffer
+       
         const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        // Generate unique filename
+       
         const filename = `profile-${userId}-${Date.now()}.png`;
         const filepath = path.join('public/uploads/profile', filename);
 
-        // Save the file
+       
         require('fs').writeFileSync(filepath, imageBuffer);
 
-        // Update user profile in database
+      
         await User.findByIdAndUpdate(userId, {
             profileImage: `/uploads/profile/${filename}` // Store the relative path
         });
@@ -278,7 +278,7 @@ const userAddress = async(req,res)=>{
         const addresses = await Address.find({ userId: userId });
       
         
-        // Render the userAddress page with the fetched addresses
+        
         res.render('userAddress', {
             user: userData,
             addresses: addresses,
@@ -381,9 +381,9 @@ const updateAddress = async (req, res) => {
     try {
       const userId = req.session.user;
       const { addressType,addressId, name, city, landMark, state, pincode, phone_no, altPhone_no } = req.body;
-    //   const addressType = req.body.address ? req.body.address.addressType : null;
+    
   
-      // Find the user's existing address
+      
       const existingUser = await Address.findOne({ userId, "address._id": addressId });
       if (!existingUser) {
         return res.json({ status: "failure", message: "Address not found" });
@@ -394,7 +394,7 @@ const updateAddress = async (req, res) => {
         return res.json({ status: "failure", message: "Address not found" });
       }
   
-      // Convert values to strings to avoid type mismatch issues
+      
       const isSame =
         existingAddress.name === name &&
         (existingAddress.addressType || "") === (addressType || "") &&
@@ -409,7 +409,7 @@ const updateAddress = async (req, res) => {
         return res.json({ status: "failure", message: "No changes detected" });
       }
   
-      // Update the address if changes are detected
+      
       await Address.updateOne(
         { userId, "address._id": addressId },
         {
@@ -481,28 +481,39 @@ const updateAddress = async (req, res) => {
 };
 
 const userOrders = async (req, res) => {
-  try {
-    const userId = req.session.user;
-    const userData = await User.findById(userId).lean();
-    const orders = await Order.find({ user: userId })
-  .populate({
-    path: 'items.productId',
-    model: 'Product', 
-  })
-  .sort({ createdAt: -1 })
-  .lean();
-
-     
-
-    res.render('userOrders', {
-      user: userData,
-      orders: orders
-    });
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    res.redirect('/pageNotFound');
-  }
-};
+    try {
+      const userId = req.session.user;
+      const userData = await User.findById(userId).lean();
+      
+      const page = parseInt(req.query.page) || 1;  // Get current page from query params
+      const limit = 3;  // Maximum 3 orders per page
+      const skip = (page - 1) * limit;
+  
+      const orders = await Order.find({ user: userId })
+        .populate({
+          path: 'items.productId',
+          model: 'Product', 
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+  
+      const totalOrders = await Order.countDocuments({ user: userId });
+      const totalPages = Math.ceil(totalOrders / limit);
+  
+      res.render('userOrders', {
+        user: userData,
+        orders: orders,
+        currentPage: page,
+        totalPages: totalPages
+      });
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      res.redirect('/pageNotFound');
+    }
+  };
+  
 
 const getReferrals = async (req, res) => {
     try {
@@ -511,15 +522,15 @@ const getReferrals = async (req, res) => {
         const limit = 10;
         const skip = (page - 1) * limit;
 
-        // Get the user details (including referral code and redeemedUsers)
+        
         const userData = await User.findById(userId).lean();
 
-        // redeemedUsers is an array of user IDs that have redeemed the referral bonus
+       
         const redeemedUserIds = userData.redeemedUsers || [];
         const totalReferrals = redeemedUserIds.length;
         const totalPages = Math.ceil(totalReferrals / limit);
 
-        // Get the referred users with pagination
+      
         const referrals = await User.find({
             _id: { $in: redeemedUserIds }
         })

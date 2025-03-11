@@ -63,14 +63,18 @@ router.get('/cartPage',auth.checkSession,cartController.cartPage)
 router.post('/addToCart', auth.checkSession, cartController.addToCart);
 router.post('/removeFromCart', auth.checkSession, cartController.removeFromCart);
 router.post('/updateCart', auth.checkSession, cartController.updateCart);
+router.get('/checkoutPage',auth.checkSession,cartController.checkoutPage);
+router.post('/placeOrder',auth.checkSession,cartController.placeOrder);
+router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
+
+
+
 
 router.get('/wishlist',auth.checkSession,wishlistController.wishlist);
 router.post('/addWishlist',wishlistController.addWishlist)
 // router.post('/removeFromWishlist',wishlistController.removeFromWishlist)
 
-router.get('/checkoutPage',auth.checkSession,cartController.checkoutPage);
-router.post('/placeOrder',auth.checkSession,cartController.placeOrder);
-router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
+
 
 
 router.get('/wallet',auth.checkSession,walletController.wallet);

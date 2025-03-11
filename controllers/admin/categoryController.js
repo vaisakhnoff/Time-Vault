@@ -10,16 +10,15 @@ const categoryInfo = async(req,res)=>{
         const perPage = 4; // items per page
         const searchQuery = req.query.search || '';
 
-        // Create search filter
+        
         const filter = searchQuery ? {
             name: { $regex: searchQuery, $options: 'i' }
         } : {};
 
-        // Get total count for pagination
         const totalCategories = await Category.countDocuments(filter);
         const totalPages = Math.ceil(totalCategories / perPage);
 
-        // Get categories with pagination and search
+        
         const categories = await Category.find(filter)
             .sort({ createdAt: -1 })
             .skip(page * perPage)
@@ -94,23 +93,20 @@ const addCategoryOffer = async (req, res) => {
       });
     }
 
-    const products = await Product.find({ category: categoryId });
-    const productsWithOffers = products.filter(product => product.productOffer > 0);
-    if (productsWithOffers.length > 0) {
-      const names = productsWithOffers.map(p => p.productName).join(', ');
-      return res.json({
-        status: false,
-        message: `Cannot add category offer as products have individual offers: ${names}`
-      });
-    }
-
-    // Update category offer
     category.categoryOffer = percentage;
     await category.save();
 
-    // Update each product's sale price
+
+    const products = await Product.find({ category: categoryId });
     for (const product of products) {
-      product.salePrice = product.salePrice * (1 - percentage / 100);
+      const productOfferDiscount = product.productOffer ? (1 - product.productOffer/100) : 1;
+      const categoryOfferDiscount = 1 - percentage/100;
+      
+      const finalDiscountFactor = Math.min(productOfferDiscount, categoryOfferDiscount);
+      
+
+
+      product.salePrice = product.regularPrice * finalDiscountFactor;
       await product.save();
     }
 
@@ -132,19 +128,23 @@ const removeCategoryoffer = async (req, res) => {
     const { categoryId } = req.body;
     const category = await Category.findById(categoryId);
     if (!category) {
-      return res.status(404).json({ status: false, message:"Category not found" });
+      return res.status(404).json({ status: false, message: "Category not found" });
     }
 
-    // Get category offer percentage before resetting
     const categoryOffer = category.categoryOffer;
     category.categoryOffer = 0;
     await category.save();
 
-    // Update products in this category
+    
     const products = await Product.find({ category: categoryId });
     for (const product of products) {
-      // Reverse the category offer calculation
-      product.salePrice = product.salePrice / (1 - categoryOffer / 100);
+
+      if (product.productOffer) {
+        const productOfferDiscount = 1 - product.productOffer/100;
+        product.salePrice = product.regularPrice * productOfferDiscount;
+      } else {
+        product.salePrice = product.regularPrice;
+      }
       await product.save();
     }
     
@@ -154,7 +154,7 @@ const removeCategoryoffer = async (req, res) => {
     });
   } catch (error) {
     console.error('Error removing category offer:', error);
-    return res.status(500).json({ status: false, message:"Internal server error" });
+    return res.status(500).json({ status: false, message: "Internal server error" });
   }
 };
 

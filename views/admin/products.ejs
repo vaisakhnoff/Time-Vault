@@ -119,66 +119,49 @@
 <!-- Corrected table body -->
 <tbody>
   <% products.forEach(function(product) { %>
-    <tr>
+    <tr data-product-id="<%= product._id %>">
       <td><%= product.productName %></td>
       <td><%= product.brand || "N/A" %></td>
       <td><%= product.category?.name || "Uncategorized" %></td>
       <td>₹<%= product.regularPrice %></td>
-      <td>₹<%= product.salePrice %></td>
+      <td data-price-type="sale">₹<%= product.salePrice %></td>
       <td id="offer-value-<%= product._id %>">
-        <% if(product.category?.categoryOffer) { %>
-          <span class="badge bg-info">Category Offer: <%= product.category.categoryOffer %>%</span>
+        <% if(product.category?.categoryOffer && product.productOffer) { %>
+          <span class="badge bg-info">Category: <%= product.category.categoryOffer %>%</span>
+          <span class="badge bg-success">Product: <%= product.productOffer %>%</span>
+          <span class="badge bg-warning">Applied: <%= Math.max(product.category.categoryOffer, product.productOffer) %>%</span>
+        <% } else if(product.category?.categoryOffer) { %>
+          <span class="badge bg-info">Category: <%= product.category.categoryOffer %>%</span>
         <% } else if(product.productOffer) { %>
-          <%= product.productOffer %>%
+          <span class="badge bg-success">Product: <%= product.productOffer %>%</span>
         <% } else { %>
           0%
         <% } %>
       </td>
-      <td><%= product.quantity %></td>
-      <!-- Replace the existing offer action buttons -->
-      <!-- Update the table body section -->
-<td>
-  <div class="btn-group-action">
-    <!-- Status Button -->
-    <% if(product.isBlocked){ %>
-      <button class="btn btn-success btn-sm action-btn unblock-button" data-id="<%= product._id %>">
-        Unblock
-      </button>
-    <% } else { %>
-      <button class="btn btn-danger btn-sm action-btn block-button" data-id="<%= product._id %>">
-        Block
-      </button>
-    <% } %>
-
-    <!-- Offer Button -->
-    <% if(product.category?.categoryOffer) { %>
-      <button class="btn btn-secondary btn-sm action-btn" 
-              onclick="showCategoryOfferAlert('<%= product.category.categoryOffer %>')">
-        Has Offer
-      </button>
-    <% } else { %>
-      <% if(product.productOffer) { %>
-        <button class="btn btn-danger btn-sm action-btn" 
-                data-id="<%= product._id %>"
-                onclick="removeProductOffer('<%= product._id %>')">
-          Remove Offer
-        </button>
-      <% } else { %>
-        <button class="btn btn-success btn-sm action-btn" 
-                data-id="<%= product._id %>"
-                onclick="addProductOffer('<%= product._id %>')">
-          Add Offer
-        </button>
-      <% } %>
-    <% } %>
-  </div>
-</td>
-<td>
-  <!-- Edit Button in its own column -->
-  <a href="/admin/editProduct/<%= product._id %>" class="btn btn-info btn-sm action-btn">
-    Edit
-  </a>
-</td>
+      <td><%= product.quantity || 0 %></td>
+      <td>
+        <div class="btn-group-action">
+          <% if(product.productOffer) { %>
+            <button class="btn btn-danger btn-sm action-btn" 
+                    data-id="<%= product._id %>"
+                    onclick="removeProductOffer('<%= product._id %>')">
+              Remove Product Offer
+            </button>
+          <% } else { %>
+            <button class="btn btn-success btn-sm action-btn" 
+                    data-id="<%= product._id %>"
+                    onclick="addProductOffer('<%= product._id %>')">
+              Add Product Offer
+            </button>
+          <% } %>
+        </div>
+      </td>
+      <td>
+        <!-- Edit Button in its own column -->
+        <a href="/admin/editProduct/<%= product._id %>" class="btn btn-info btn-sm action-btn">
+          Edit
+        </a>
+      </td>
     </tr>
   <% }); %>
 </tbody>
@@ -370,28 +353,8 @@ async function handleProductOffer(action, productId) {
         const data = await response.json();
         
         if (data.success) {
-            // Update UI without page reload
-            const offerValueElement = document.getElementById(`offer-value-${productId}`);
-            const buttonContainer = document.querySelector(`button[data-id="${productId}"]`).parentElement;
-            
-            if (action === 'add') {
-                offerValueElement.textContent = `${percentage}%`;
-                buttonContainer.innerHTML = `
-                    <button class="btn btn-danger btn-sm action-btn" 
-                            data-id="${productId}"
-                            onclick="removeProductOffer('${productId}')">
-                        Remove Offer
-                    </button>`;
-            } else {
-                offerValueElement.textContent = '0%';
-                buttonContainer.innerHTML = `
-                    <button class="btn btn-success btn-sm action-btn" 
-                            data-id="${productId}"
-                            onclick="addProductOffer('${productId}')">
-                        Add Offer
-                    </button>`;
-            }
-
+            // Update UI elements including price
+            updateProductDisplay(productId, data);
             await Swal.fire({
                 icon: 'success',
                 title: `Offer ${action === 'add' ? 'Added' : 'Removed'} Successfully`,
@@ -412,6 +375,83 @@ async function handleProductOffer(action, productId) {
     }
 }
 
+// Add this function to update the offer display
+function updateOfferDisplay(productId, data) {
+    const offerValueElement = document.getElementById(`offer-value-${productId}`);
+    const buttonContainer = document.querySelector(`button[data-id="${productId}"]`).parentElement;
+    
+    let offerHtml = '';
+    let buttonHtml = '';
+    
+    if (data.categoryOffer && data.productOffer) {
+        offerHtml = `
+            <span class="badge bg-info">Category: ${data.categoryOffer}%</span>
+            <span class="badge bg-success">Product: ${data.productOffer}%</span>
+            <span class="badge bg-warning">Applied: ${Math.max(data.categoryOffer, data.productOffer)}%</span>
+        `;
+    } else if (data.categoryOffer) {
+        offerHtml = `<span class="badge bg-info">Category: ${data.categoryOffer}%</span>`;
+    } else if (data.productOffer) {
+        offerHtml = `<span class="badge bg-success">Product: ${data.productOffer}%</span>`;
+    } else {
+        offerHtml = '0%';
+    }
+    
+    // Always show product offer controls
+    buttonHtml = data.productOffer ? 
+        `<button class="btn btn-danger btn-sm action-btn" data-id="${productId}" onclick="removeProductOffer('${productId}')">
+            Remove Product Offer
+         </button>` :
+        `<button class="btn btn-success btn-sm action-btn" data-id="${productId}" onclick="addProductOffer('${productId}')">
+            Add Product Offer
+         </button>`;
+    
+    offerValueElement.innerHTML = offerHtml;
+    buttonContainer.innerHTML = buttonHtml;
+}
+
+// Add this new function to update all relevant display elements
+function updateProductDisplay(productId, data) {
+    // Update offer display
+    const offerValueElement = document.getElementById(`offer-value-${productId}`);
+    const buttonContainer = document.querySelector(`button[data-id="${productId}"]`).parentElement;
+    const salePriceElement = document.querySelector(`tr[data-product-id="${productId}"] td[data-price-type="sale"]`);
+    
+    // Update offer badges
+    let offerHtml = '';
+    if (data.categoryOffer && data.productOffer) {
+        offerHtml = `
+            <span class="badge bg-info">Category: ${data.categoryOffer}%</span>
+            <span class="badge bg-success">Product: ${data.productOffer}%</span>
+            <span class="badge bg-warning">Applied: ${Math.max(data.categoryOffer, data.productOffer)}%</span>
+        `;
+    } else if (data.categoryOffer) {
+        offerHtml = `<span class="badge bg-info">Category: ${data.categoryOffer}%</span>`;
+    } else if (data.productOffer) {
+        offerHtml = `<span class="badge bg-success">Product: ${data.productOffer}%</span>`;
+    } else {
+        offerHtml = '0%';
+    }
+    
+    // Update offer control button
+    const buttonHtml = data.productOffer ? 
+        `<button class="btn btn-danger btn-sm action-btn" data-id="${productId}" onclick="removeProductOffer('${productId}')">
+            Remove Product Offer
+         </button>` :
+        `<button class="btn btn-success btn-sm action-btn" data-id="${productId}" onclick="addProductOffer('${productId}')">
+            Add Product Offer
+         </button>`;
+    
+    // Update the UI elements
+    offerValueElement.innerHTML = offerHtml;
+    buttonContainer.innerHTML = buttonHtml;
+    
+    // Update the sale price if provided in the response
+    if (data.newPrice !== undefined && salePriceElement) {
+        salePriceElement.textContent = `₹${data.newPrice.toFixed(2)}`;
+    }
+}
+
 // Category offer alert function
 function showCategoryOfferAlert(categoryOfferValue) {
     Swal.fire({
@@ -419,8 +459,8 @@ function showCategoryOfferAlert(categoryOfferValue) {
         title: 'Category Offer Active',
         html: `
             <div class="text-center">
-                <p>This product already has a category offer of <b>${categoryOfferValue}%</b> applied.</p>
-                <p class="text-muted">Product-specific offers cannot be added when a category offer is active.</p>
+                <p>This product has a category offer of <b>${categoryOfferValue}%</b>.</p>
+                <p>The higher discount between category and product offers will be applied.</p>
             </div>
         `,
         confirmButtonText: 'Understood',

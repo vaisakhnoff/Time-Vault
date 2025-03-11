@@ -6,13 +6,15 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+
+
 const getDashboardStats = async (req, res) => {
     try {
         // Get overall stats
         const totalOrders = await Order.countDocuments();
         const totalSales = await Order.aggregate([
             {
-                $unwind: "$items" // First unwind the items array
+                $unwind: "$items"  
             },
             {
                 $group: {
@@ -21,7 +23,7 @@ const getDashboardStats = async (req, res) => {
                     originalTotal: {
                         $sum: {
                             $multiply: [
-                                { $toDouble: "$items.price" }, // Ensure numeric conversion
+                                { $toDouble: "$items.price" }, 
                                 { $toDouble: "$items.quantity" }
                             ]
                         }
@@ -36,7 +38,7 @@ const getDashboardStats = async (req, res) => {
             }
         ]);
 
-        // Get today's stats
+     
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -128,14 +130,14 @@ const generateSalesReport = async (req, res) => {
         }
 
         const salesReport = await Order.aggregate([
-            // Filter orders based on date and exclude certain statuses.
+           
             {
                 $match: {
                     ...dateFilter,
                     orderStatus: { $nin: ['Cancelled', 'Return Requested', 'Returned'] }
                 }
             },
-            // Compute originalTotal for each order using $reduce on the items array.
+            
             {
                 $addFields: {
                     originalTotal: {
@@ -147,7 +149,7 @@ const generateSalesReport = async (req, res) => {
                     }
                 }
             },
-            // Lookup user details
+          
             {
                 $lookup: {
                     from: "users",
@@ -157,7 +159,7 @@ const generateSalesReport = async (req, res) => {
                 }
             },
             { $unwind: "$userDetails" },
-            // Group orders by date (formatted as "YYYY-MM-DD")
+            
             {
                 $group: {
                     _id: {
@@ -181,7 +183,7 @@ const generateSalesReport = async (req, res) => {
             { $sort: { "_id.date": -1 } }
         ]);
 
-        // Calculate overall totals.
+        
         const totals = salesReport.reduce(
             (acc, day) => ({
                 orderCount: acc.orderCount + day.orderCount,
@@ -206,7 +208,7 @@ const downloadSalesReport = async (req, res) => {
     try {
         const { reportType, format } = req.query;
         
-        // Reuse the same logic from generateSalesReport to get the data
+        
         let dateFilter = {};
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -235,14 +237,14 @@ const downloadSalesReport = async (req, res) => {
         }
 
         const salesReport = await Order.aggregate([
-            // Filter orders based on date and exclude certain statuses.
+        
             {
                 $match: {
                     ...dateFilter,
                     orderStatus: { $nin: ['Cancelled', 'Return Requested', 'Returned'] }
                 }
             },
-            // Compute originalTotal for each order using $reduce on the items array.
+          
             {
                 $addFields: {
                     originalTotal: {
@@ -254,7 +256,7 @@ const downloadSalesReport = async (req, res) => {
                     }
                 }
             },
-            // Lookup user details
+    
             {
                 $lookup: {
                     from: "users",
@@ -264,7 +266,7 @@ const downloadSalesReport = async (req, res) => {
                 }
             },
             { $unwind: "$userDetails" },
-            // Group orders by date (formatted as "YYYY-MM-DD")
+           
             {
                 $group: {
                     _id: {
@@ -323,17 +325,17 @@ const downloadSalesReport = async (req, res) => {
                 res.send(pdfBuffer);
             });
 
-            // Add content to PDF
+            
             doc.fontSize(20).text('Sales Report', { align: 'center' });
             doc.moveDown();
 
-            // Add table headers
+           
             doc.fontSize(12).text('Date', 50, 150);
             doc.text('Orders', 200, 150);
             doc.text('Total Amount', 300, 150);
             doc.text('Discount', 400, 150);
 
-            // Add table rows
+          
             let yPosition = 170;
             salesReport.forEach(day => {
                 doc.text(day._id.date, 50, yPosition);
