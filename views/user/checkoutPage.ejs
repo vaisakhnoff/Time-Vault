@@ -165,6 +165,16 @@
                 Online Payment
               </label>
             </div>
+            <!-- New Wallet Payment Option -->
+            <div class="form-check">
+              <input class="form-check-input" type="radio" 
+                     name="paymentMethod" 
+                     value="Wallet" 
+                     id="wallet">
+              <label class="form-check-label" for="wallet">
+                Wallet Payment
+              </label>
+            </div>
           </div>
         </div>
 
@@ -333,8 +343,11 @@
   document.getElementById('remove-coupon-btn')?.addEventListener('click', removeCouponHandler);
 
   // Listen to the form submit event for payment processing
+
+  
   document.getElementById('checkout-form').addEventListener('submit', async function(e) {
     const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+
     if (paymentMethod === 'Online') {
       e.preventDefault(); // prevent form submission to /placeOrder
 
@@ -385,6 +398,30 @@
       var rzp1 = new Razorpay(options);
       rzp1.open();
 
+    } else if (paymentMethod === 'Wallet') {
+      // Prevent normal form submission
+      e.preventDefault();
+      
+      const addressId = document.querySelector('input[name="addressId"]:checked').value;
+      
+      try {
+        const response = await fetch('/walletPaymentOrder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ addressId })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          // Redirect to order success page
+          window.location.href = '/orderSuccess';
+        } else {
+          Swal.fire('Error', data.error || 'Wallet payment failed', 'error');
+        }
+      } catch (error) {
+        console.error('Wallet payment error:', error);
+        Swal.fire('Error', 'Something went wrong!', 'error');
+      }
     } else {
       // For COD, submit the form normally
       e.target.submit();

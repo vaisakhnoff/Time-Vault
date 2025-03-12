@@ -178,6 +178,7 @@ const placeOrder = async (req, res) => {
     const userId = req.session.user;
     const { addressId, paymentMethod } = req.body;
 
+    // This endpoint is for COD orders only.
     if (paymentMethod !== "COD") {
       return res.status(400).json({ message: "Invalid payment method" });
     }
@@ -195,14 +196,23 @@ const placeOrder = async (req, res) => {
       (addr) => addr._id.toString() === addressId
     );
 
+    // Calculate the cart total.
     let totalAmount = cart.items.reduce((total, item) => {
       return total + item.productId.salePrice * item.quantity;
     }, 0);
 
+    // Apply coupon discount if available.
     let couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
     let discountedTotal = totalAmount - couponDiscount;
     if (discountedTotal < 0) discountedTotal = 0;
 
+    // New check: COD is not allowed for orders above ₹1000.
+    if (discountedTotal > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: "COD is only available for orders up to ₹1000"
+      });
+    }
     const order = new Order({
       user: userId,
       items: cart.items.map((item) => ({
@@ -220,16 +230,18 @@ const placeOrder = async (req, res) => {
 
     await order.save();
 
+    // Update product quantities.
     for (const item of cart.items) {
       await Product.findByIdAndUpdate(item.productId._id, {
         $inc: { quantity: -item.quantity },
       });
     }
+    
+    // Clear the cart.
     cart.items = [];
     await cart.save();
 
     req.session.coupon = undefined;
-
     return res.redirect("/orderSuccess");
   } catch (error) {
     console.error("Error placing order:", error);
@@ -366,11 +378,20 @@ const applyCoupon = async (req, res) => {
       offerPrice: coupon.offerPrice,
       minimumPrice: coupon.minimumPrice,
     };
-    return res.json({
+     return res.json({
       success: true,
-      message: "Coupon applied successfully",
+      message: "Coupon applied",
       coupon: req.session.coupon,
+      cartTotal,        // Original cart total without discount
+      discount: coupon.offerPrice,
+      grandTotal: cartTotal - coupon.offerPrice,
     });
+    
+    // res.json({
+    //   success: true,
+    //   message: "Coupon applied successfully",
+    //   coupon: req.session.coupon,
+    // });
   } catch (error) {
     console.error("Error applying coupon:", error);
     return res
@@ -378,6 +399,23 @@ const applyCoupon = async (req, res) => {
       .json({ success: false, message: "Internal server error" });
   }
 };
+
+// const removeCoupon = async (req, res) => {
+//   try {
+//     if (!req.session.coupon) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "No coupon applied" });
+//     }
+//     req.session.coupon = undefined;
+//     return res.json({ success: true, message: "Coupon removed successfully" });
+//   } catch (error) {
+//     console.error("Error removing coupon:", error);
+//     return res
+//       .status(500)
+//       .json({ success: false, message: "Internal server error" });
+//   }
+// };
 
 const removeCoupon = async (req, res) => {
   try {
@@ -387,12 +425,32 @@ const removeCoupon = async (req, res) => {
         .json({ success: false, message: "No coupon applied" });
     }
     req.session.coupon = undefined;
-    return res.json({ success: true, message: "Coupon removed successfully" });
+
+    const userId = req.session.user;
+    const cart = await Cart.findOne({ userId })
+      .populate("items.productId")
+      .lean();
+    const cartTotal = cart.items.reduce((total, item) => {
+      return total + item.productId.salePrice * item.quantity;
+    }, 0);
+
+    const availableCoupons = await Coupon.find({
+      isList: true,
+      expireOn: { $gt: new Date() },
+      minimumPrice: { $lte: cartTotal },
+    }).lean();
+
+    res.json({
+      success: true,
+      message: "Coupon removed successfully",
+      cartTotal,
+      discount: 0,
+      grandTotal: cartTotal,
+      availableCoupons,
+    });
   } catch (error) {
     console.error("Error removing coupon:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 

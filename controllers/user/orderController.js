@@ -69,6 +69,7 @@ const cancelOrder = async (req, res) => {
       return res.redirect(`/order/${orderId}?error=Cancellation not allowed at this stage`);
     }
     
+    // Restore product stock
     for (const item of order.items) {
       const product = await Product.findById(item.productId);
       if (product) {
@@ -83,20 +84,26 @@ const cancelOrder = async (req, res) => {
       Cancelled: new Date()
     };
 
-    if (order.paymentMethod === 'Online' && order.paymentStatus === 'Completed') {
+    // Refund for Online orders already handled. Now add refund logic for Wallet orders.
+    if (
+      (order.paymentMethod === 'Online' || order.paymentMethod === 'Wallet') &&
+      order.paymentStatus === 'Completed'
+    ) {
       const user = await User.findById(order.user);
       if (user) {
-        // Add refunded amount to user's wallet
+        // Refund order total to user's wallet
         user.wallet = (user.wallet || 0) + order.totalAmount;
         console.log("User wallet updated:", user.wallet);
         await user.save();
 
-        
+        // Create a wallet transaction record for the refund
         const walletTx = new WalletTransaction({
           userId: order.user,
           amount: order.totalAmount,
           type: "Credit",
-          description: "Refund for cancelled online order"
+          description: order.paymentMethod === 'Online'
+            ? `Refund for cancelled online order. ${order._id}`
+            : `Refund for cancelled wallet order .  ${order._id}`
         });
         await walletTx.save();
       }
@@ -260,6 +267,77 @@ const onlinePaymentSuccess = async (req, res) => {
   }
 };
 
+const walletPaymentOrder = async (req, res) => {
+  try {
+    const userId = req.session.user;
+    const { addressId } = req.body;
+    
+    // Get the cart and calculate total
+    const cart = await Cart.findOne({ userId }).populate('items.productId');
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+    
+    let totalAmount = cart.items.reduce((total, item) => {
+      return total + item.productId.salePrice * item.quantity;
+    }, 0);
+    
+    let couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
+    let discountedTotal = totalAmount - couponDiscount;
+    if (discountedTotal < 0) discountedTotal = 0;
+    
+    // Fetch user to check wallet balance
+    const user = await User.findById(userId);
+    if (user.wallet < discountedTotal) {
+      return res.status(400).json({ error: 'Insufficient wallet balance' });
+    }
+    
+    // Deduct wallet amount and save a transaction record
+    user.wallet -= discountedTotal;
+    await user.save();
+    
+    const walletTx = new WalletTransaction({
+      userId: userId,
+      amount: discountedTotal,
+      type: "Debit",
+      description: "Payment for order using wallet"
+    });
+    await walletTx.save();
+    
+    // Create order with payment method set to "Wallet"
+    const order = new Order({
+      user: userId,
+      items: cart.items.map(item => ({
+        productId: item.productId._id,
+        quantity: item.quantity,
+        price: item.productId.salePrice,
+        totalPrice: item.productId.salePrice * item.quantity,
+      })),
+      address: addressId,
+      paymentMethod: 'Wallet',
+      paymentStatus: 'Completed',
+      totalAmount: discountedTotal,
+      orderStatus: 'Pending'
+    });
+    await order.save();
+    
+    for (const item of cart.items) {
+      await Product.findByIdAndUpdate(item.productId._id, { $inc: { quantity: -item.quantity } });
+    }
+    cart.items = [];
+    await cart.save();
+    
+    // Clear any applied coupon from session
+    req.session.coupon = undefined;
+    
+    // Respond with order details
+    return res.json({ success: true, orderId: order._id });
+  } catch (error) {
+    console.error('Error processing wallet payment:', error);
+    return res.status(500).json({ error: 'Unable to process wallet payment' });
+  }
+};
+
 module.exports = {
 
   viewOrderDetails,
@@ -267,5 +345,6 @@ module.exports = {
   submitReview,
   requestReturnOrder, 
   createOnlineOrder,
-  onlinePaymentSuccess
+  onlinePaymentSuccess,
+  walletPaymentOrder  // added new function here
 };
