@@ -80,16 +80,35 @@
                   <td><%= item.quantity %></td>
                   <td>₹<%= item.price * item.quantity %></td>
                   <td>
-                    <% if (order.orderStatus === 'Delivered') { %>
-                      <% if (!item.reviewed) { %>
-                        <button class="btn btn-sm btn-primary" 
-                                onclick="openReviewModal('<%= item.productId._id %>')">
-                          Write Review
-                        </button>
-                      <% } else { %>
-                        <span class="badge bg-success">Reviewed</span>
+                    <div class="d-flex flex-column gap-2">
+                      <% if (order.orderStatus === 'Delivered') { %>
+                        <% if (!item.reviewed) { %>
+                          <button class="btn btn-sm btn-primary" 
+                                  onclick="openReviewModal('<%= item.productId._id %>')">
+                            Write Review
+                          </button>
+                          <button class="btn btn-sm btn-warning"
+                                  onclick="returnOrderItem('<%= order._id %>', '<%= item.productId._id %>')">
+                            Return Item
+                          </button>
+                        <% } else { %>
+                          <span class="badge bg-success">Reviewed</span>
+                        <% } %>
                       <% } %>
-                    <% } %>
+                      <% if (order.orderStatus === 'Pending') { %>
+                        <button class="btn btn-sm btn-danger"
+                                onclick="cancelOrderItem('<%= order._id %>', '<%= item.productId._id %>')">
+                          Cancel Item
+                        </button>
+                      <% } %>
+                      <% if (item.status) { %>
+                        <span class="badge bg-<%= item.status === 'Cancelled' ? 'danger' : 
+                                                item.status === 'Returned' ? 'info' : 
+                                                item.status === 'Return Requested' ? 'warning' : 'success' %>">
+                          <%= item.status %>
+                        </span>
+                      <% } %>
+                    </div>
                   </td>
                 </tr>
               <% }) %>
@@ -278,6 +297,100 @@ function requestReturn(orderId) {
     alert('Error processing return request');
   });
 }
+
+function cancelOrderItem(orderId, productId) {
+  Swal.fire({
+    title: 'Are you sure?',
+    text: "You want to cancel this item?",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Yes, cancel it!'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch('/order/cancelItem', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ orderId, productId })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire(
+            'Cancelled!',
+            'Your item has been cancelled.',
+            'success'
+          ).then(() => {
+            location.reload();
+          });
+        } else {
+          Swal.fire(
+            'Error!',
+            data.message || 'Something went wrong',
+            'error'
+          );
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        Swal.fire(
+          'Error!',
+          'Failed to cancel item',
+          'error'
+        );
+      });
+    }
+  });
+}
+
+function returnOrderItem(orderId, productId) {
+  Swal.fire({
+    title: 'Return Item',
+    text: 'Please provide a reason for return:',
+    input: 'textarea',
+    inputAttributes: {
+      required: true
+    },
+    showCancelButton: true,
+    confirmButtonText: 'Submit Return Request',
+    showLoaderOnConfirm: true,
+    preConfirm: (reason) => {
+      return fetch('/order/returnItem', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ orderId, productId, reason })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to process return request')
+        }
+        return data;
+      })
+      .catch(error => {
+        Swal.showValidationMessage(error.message);
+      });
+    },
+    allowOutsideClick: () => !Swal.isLoading()
+  }).then((result) => {
+    if (result.isConfirmed) {
+      Swal.fire(
+        'Success!',
+        'Return request submitted successfully',
+        'success'
+      ).then(() => {
+        location.reload();
+      });
+    }
+  });
+}
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 
 <%- include("../../views/partials/user/footer") %>

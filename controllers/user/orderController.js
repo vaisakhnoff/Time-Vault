@@ -346,5 +346,5 @@ module.exports = {
   requestReturnOrder, 
   createOnlineOrder,
   onlinePaymentSuccess,
-  walletPaymentOrder  // added new function here
+  walletPaymentOrder  
 };

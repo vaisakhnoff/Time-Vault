@@ -143,6 +143,21 @@
 
   </style>
   
+  <section class="add-money_section section_gap">
+    <div class="container">
+      <h2>Add Money to Wallet</h2>
+      <div class="row">
+        <div class="col-md-4">
+          <input type="number" id="wallet-amount" class="form-control form-control-sm" placeholder="Enter amount" min="1" required>
+        </div>
+        <div class="col-md-4">
+          <button id="add-money-btn" class="btn btn-primary btn-sm">Add Money</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
   <!-- Wallet Area -->
   <section class="wallet_area">
     <div class="container">
@@ -162,6 +177,7 @@
         </div>
       </div>
   
+      
       <!-- Transaction History -->
       <div class="transaction-history mt-4">
         <h3>Transaction History</h3>
@@ -213,6 +229,79 @@
       </div>
     </div>
   </section>
+
   
+  <script>
+    document.getElementById('add-money-btn').addEventListener('click', async function() {
+    const amountInput = document.getElementById('wallet-amount');
+    const amount = parseFloat(amountInput.value);
+    
+    // HTML5 validation should handle the empty value, but we verify here as well.
+    if (!amount || amount <= 0 || isNaN(amount)) {
+      Swal.fire('Error', 'Please enter a valid amount greater than zero', 'error');
+      amountInput.focus();
+      return;
+    }
+    
+    try {
+      // Create a Razorpay order for wallet top-up
+      const response = await fetch('/wallet/createOrder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }) // amount in rupees
+      });
+      const data = await response.json();
+      
+      if (!data.success) {
+        Swal.fire('Error', data.message, 'error');
+        return;
+      }
+      
+      // Initialize Razorpay checkout options
+      var options = {
+        "key": "<%= process.env.RAZORPAY_KEY_ID %>", // Razorpay key from environment
+        "amount": data.order.amount, // amount in paise
+        "currency": "INR",
+        "name": "Your Store",
+        "description": "Add money to wallet",
+        "order_id": data.order.id,
+        "handler": async function(response) {
+          // On successful payment, verify payment on the backend
+          const verifyRes = await fetch('/wallet/paymentSuccess', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              amount: amount // in rupees
+            })
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyData.success) {
+            Swal.fire('Success', 'Money added to wallet successfully', 'success')
+              .then(() => location.reload());
+          } else {
+            Swal.fire('Error', verifyData.message, 'error');
+          }
+        },
+        "theme": { "color": "#3399cc" }
+      };
+      
+      var rzp1 = new Razorpay(options);
+      rzp1.open();
+    } catch (error) {
+      console.error(error);
+      Swal.fire('Error', 'Something went wrong', 'error');
+    }
+  });
+  </script>
+  
+  <!-- Add this in the head section -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Add Razorpay SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
   <!-- Include Footer -->
   <%- include("../../views/partials/user/footer") %>

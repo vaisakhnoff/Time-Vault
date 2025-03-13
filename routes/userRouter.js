@@ -68,21 +68,17 @@ router.get('/checkoutPage',auth.checkSession,cartController.checkoutPage);
 router.post('/placeOrder',auth.checkSession,cartController.placeOrder);
 router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
 
-
-
-
 router.get('/wishlist',auth.checkSession,wishlistController.wishlist);
 router.post('/addWishlist',wishlistController.addWishlist)
 // router.post('/removeFromWishlist',wishlistController.removeFromWishlist)
 
-
-
-
 router.get('/wallet',auth.checkSession,walletController.wallet);
+router.post('/wallet/createOrder', walletController.createOrder);
+router.post('/wallet/paymentSuccess', walletController.paymentSuccess);
+
 router.get('/referal',auth.checkSession,profileController.getReferrals);
 
 router.post('/applyCoupon', cartController.applyCoupon);
 router.post('/removeCoupon', cartController.removeCoupon);
-
 
 module.exports =router;

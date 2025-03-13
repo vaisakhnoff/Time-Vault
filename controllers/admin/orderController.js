@@ -116,6 +116,9 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
+    if(order.orderStatus === 'Delivered' && newStatus !== 'Delivered') {
+      return res.status(400).json({success:false, message:"Cannot reverse status"});
+    }
    
     if (newStatus === 'Delivered' && order.paymentMethod === 'COD') {
       order.paymentStatus = 'Completed';
