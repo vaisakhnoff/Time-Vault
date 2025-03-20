@@ -12,23 +12,21 @@ const orderSchema = new mongoose.Schema({
       ref: 'user',
       required: true
     },
-    items: [
-      {
-        productId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'Product',
-          required: true
-        },
-        quantity: {
-          type: Number,
-          required: true
-        },
-        price: {
-          type: Number,
-          required: true
-        }
-      }
-    ],
+   items: [
+    {
+      productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+      quantity: Number,
+      price: Number,
+      status: { 
+        type: String, 
+        enum: ['Pending', 'Shipped','Out for Delivery','Delivered', 'Cancelled', 'Returned'],
+        default: 'Pending'
+      },
+      cancellationReason: String,
+      returnReason: String,
+      reviewed: Boolean
+    }
+  ],
     // address: {
     //   name: String,
     //   city: String,
@@ -55,7 +53,17 @@ const orderSchema = new mongoose.Schema({
     },
     orderStatus: {
       type: String,
-      enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Return Requested', 'Returned', 'Return Declined'],
+      enum: [
+        'Pending', 
+        'Processing', 
+        'Shipped', 
+        'Out for Delivery',  // Added this status
+        'Delivered', 
+        'Cancelled', 
+        'Return Requested', 
+        'Returned', 
+        'Return Declined'
+      ],
       default: 'Pending'
     },
     returnRequest: {
@@ -76,4 +84,3 @@ const orderSchema = new mongoose.Schema({
   const order = mongoose.model('Order', orderSchema);
   
   module.exports = order;
-  

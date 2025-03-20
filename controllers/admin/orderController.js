@@ -22,14 +22,21 @@ const listOrders = async (req, res) => {
       query.orderStatus = filterStatus;
     }
 
-    const totalOrders = await Order.countDocuments(query);
-    const orders = await Order.find(query)
+    // Get orders and transform them
+    let orders = await Order.find(query)
       .populate('user')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean();
-    console.log("orders",orders);
+
+    // Add isEditable field to each order after getting lean objects
+    orders = orders.map(order => ({
+      ...order,
+      isEditable: !['Cancelled', 'Returned'].includes(order.orderStatus)
+    }));
+
+    const totalOrders = await Order.countDocuments(query);
 
     res.render('orderManagement', {
       orders,
@@ -56,10 +63,11 @@ const viewOrderDetails = async (req, res) => {
      
     
       const userId = order.user._id;
-      console.log("userId",userId);
+      
 
-      // const address = await Address.find({ userId: userId }).lean();
-      // console.log("address",address);
+       
+          const userData = await user.findById(userId).lean();
+
       
       const addressDoc = await Address.findOne({ userId: userId }).lean();
       
@@ -75,7 +83,7 @@ const viewOrderDetails = async (req, res) => {
             );
           }
       
-          console.log("Selected Address:", selectedAddress);     
+       
 
 
 
@@ -84,7 +92,8 @@ const viewOrderDetails = async (req, res) => {
     if (!order) return res.redirect('/admin/orders');
 
     res.render('orderDetail', { order,
-        address:selectedAddress
+        address:selectedAddress,
+        user:userData
 
      });
   } catch (error) {
@@ -99,14 +108,6 @@ const updateOrderStatus = async (req, res) => {
     const { orderId, newStatus } = req.body;
     const validStatuses = ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
     
-    if (!validStatuses.includes(newStatus)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid status',
-        icon: 'error'
-      });
-    }
-
     const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ 
@@ -116,12 +117,52 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    if(order.orderStatus === 'Delivered' && newStatus !== 'Delivered') {
-      return res.status(400).json({success:false, message:"Cannot reverse status"});
+    // Define valid status transitions
+    const validTransitions = {
+      'Pending': ['Shipped'],
+      'Shipped': ['Out for Delivery'],
+      'Out for Delivery': ['Delivered'],
+      'Delivered': [],
+      'Cancelled': [],
+      'Returned': []
+    };
+
+    // Check if the status transition is valid
+    if (!validTransitions[order.orderStatus]?.includes(newStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot change status from ${order.orderStatus} to ${newStatus}`,
+        icon: 'error'
+      });
     }
-   
-    if (newStatus === 'Delivered' && order.paymentMethod === 'COD') {
-      order.paymentStatus = 'Completed';
+
+    // Handle order cancellation logic
+    if (newStatus === 'Cancelled') {
+      // Restore product stock
+      for (const item of order.items) {
+        const product = await Product.findById(item.productId);
+        if (product) {
+          product.quantity += item.quantity;
+          await product.save();
+        }
+      }
+
+      // Handle refund if payment was made
+      if (order.paymentStatus === 'Completed') {
+        const user = await user.findById(order.user);
+        if (user) {
+          user.wallet = (user.wallet || 0) + order.totalAmount;
+          await user.save();
+
+          // Create wallet transaction
+          await new WalletTransaction({
+            userId: user._id,
+            amount: order.totalAmount,
+            type: 'Credit',
+            description: `Refund for cancelled order ${order._id}`
+          }).save();
+        }
+      }
     }
 
     order.orderStatus = newStatus;
@@ -226,10 +267,90 @@ const verifyReturnRequest = async (req, res) => {
   }
 };
 
+// Add these new functions to the controller
+const listReturnRequests = async (req, res) => {
+  try {
+    const returnRequests = await Order.find({
+      orderStatus: 'Return Requested',
+      'returnRequest.status': 'Requested'
+    })
+    .populate('user', 'firstName lastName')
+    .sort({ 'returnRequest.requestedAt': -1 })
+    .lean();
 
+    res.render('returnRequests', { returnRequests });
+  } catch (error) {
+    console.error('Error fetching return requests:', error);
+    res.redirect('/pageNotFound');
+  }
+};
+
+const processReturnRequest = async (req, res) => {
+  try {
+    const { orderId, approve } = req.body;
+    const order = await Order.findById(orderId)
+      .populate('user')
+      .populate('items.productId');
+      
+    if (!order) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found'
+      });
+    }
+
+    if (approve) {
+      // Restore product stock
+      for (const item of order.items) {
+        const product = await Product.findById(item.productId);
+        if (product) {
+          product.quantity += item.quantity;
+          await product.save();
+        }
+      }
+
+      // Process refund
+      const refundAmount = order.totalAmount;
+      order.user.wallet = (order.user.wallet || 0) + refundAmount;
+      await order.user.save();
+
+      // Create wallet transaction
+      await new WalletTransaction({
+        userId: order.user._id,
+        amount: refundAmount,
+        type: 'Credit',
+        description: `Refund for returned order ${order._id}`
+      }).save();
+
+      order.orderStatus = 'Returned';
+      order.returnRequest.status = 'Approved';
+    } else {
+      order.orderStatus = 'Return Declined';
+      order.returnRequest.status = 'Declined';
+    }
+
+    order.returnRequest.processedAt = new Date();
+    await order.save();
+
+    res.json({
+      success: true,
+      message: approve ? 'Return request approved and refund processed' : 'Return request declined'
+    });
+  } catch (error) {
+    console.error('Error processing return request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing return request'
+    });
+  }
+};
+
+// Update the exports
 module.exports = {
   listOrders,
   viewOrderDetails,
   updateOrderStatus,
-  verifyReturnRequest
+  verifyReturnRequest,
+  listReturnRequests,
+  processReturnRequest
 };

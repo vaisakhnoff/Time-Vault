@@ -76,7 +76,9 @@ const logout = async(req,res)=>{
     }
 }
 
-const handleItemReturn = async (req, res) => {
+
+
+  const handleItemReturn = async (req, res) => {
     try {
       const { orderId, productId, action } = req.body;
       const order = await Order.findById(orderId).populate('user').populate('items.productId');
@@ -131,8 +133,6 @@ const handleItemReturn = async (req, res) => {
       return res.status(500).json({ success: false, message: "Error processing return" });
     }
   };
-
-
 
 module.exports = {
     loadLogin,

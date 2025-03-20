@@ -56,6 +56,9 @@ router.post('/cancelOrder', auth.checkSession, orderController.cancelOrder);
 router.post('/submitReview', auth.checkSession, orderController.submitReview);
 router.post('/returnOrder', auth.checkSession, orderController.requestReturnOrder);
 router.post('/walletPaymentOrder', auth.checkSession, orderController.walletPaymentOrder);
+router.post('/order/cancelItem', auth.checkSession, orderController.cancelOrderItem);
+router.post('/order/returnItem', auth.checkSession, orderController.returnOrderItem);
+
 
 router.post('/createOnlineOrder', orderController.createOnlineOrder);
 router.post('/onlinePaymentSuccess', orderController.onlinePaymentSuccess);

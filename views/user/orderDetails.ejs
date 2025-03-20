@@ -10,14 +10,17 @@
         <h3>Order Details #<%= order._id %></h3>
         <div>
           <% if (order.orderStatus === 'Delivered') { %>
-            <!-- Show Request Return button if order is delivered and not already requested -->
             <% if (order.orderStatus !== 'Return Requested' && order.orderStatus !== 'Returned') { %>
               <button class="btn btn-warning" onclick="requestReturn('<%= order._id %>')">
                 Request Return
               </button>
             <% } %>
           <% } %>
-          <% if (order.orderStatus === 'Pending') { %>
+          <% 
+            // Filter active items (without a status or status 'Pending')
+            const activeItems = order.items.filter(item => !item.status || item.status === 'Pending');
+          %>
+          <% if (order.orderStatus === 'Pending' && activeItems.length > 0) { %>
             <form action="/cancelOrder" method="POST" class="d-inline">
               <input type="hidden" name="orderId" value="<%= order._id %>">
               <button type="submit" class="btn btn-danger" 
@@ -25,6 +28,8 @@
                 Cancel Order
               </button>
             </form>
+          <% } else if (order.orderStatus === 'Pending') { %>
+            <p>All items have been cancelled.</p>
           <% } %>
         </div>
       </div>
@@ -36,7 +41,6 @@
         <div class="status-track">
           <% const statuses = ['Pending', 'Processing', 'Shipped', 'Delivered'] %>
           <% const currentIndex = statuses.indexOf(order.orderStatus) %>
-          
           <% statuses.forEach((status, index) => { %>
             <div class="status-step <%= index <= currentIndex ? 'active' : '' %>">
               <div class="status-point"></div>
@@ -80,31 +84,24 @@
                   <td><%= item.quantity %></td>
                   <td>₹<%= item.price * item.quantity %></td>
                   <td>
-                    <div class="d-flex flex-column gap-2">
-                      <% if (order.orderStatus === 'Delivered') { %>
-                        <% if (!item.reviewed) { %>
-                          <button class="btn btn-sm btn-primary" 
-                                  onclick="openReviewModal('<%= item.productId._id %>')">
-                            Write Review
+                    <div class="order-actions">
+                      <% if ((order.items.length > 1 && (!item.status || item.status === 'Pending')) ) { %>
+                        <% if (order.orderStatus === 'Pending') { %>
+                          <button class="btn btn-sm btn-danger"
+                                  onclick="cancelOrderItem('<%= order._id %>', '<%= item._id %>')">
+                            Cancel Item
                           </button>
+                        <% } %>
+                        <% if (order.orderStatus === 'Delivered' && (!item.status || item.status === 'Pending')) { %>
                           <button class="btn btn-sm btn-warning"
-                                  onclick="returnOrderItem('<%= order._id %>', '<%= item.productId._id %>')">
+                                  onclick="returnOrderItem('<%= order._id %>', '<%= item._id %>')">
                             Return Item
                           </button>
-                        <% } else { %>
-                          <span class="badge bg-success">Reviewed</span>
                         <% } %>
                       <% } %>
-                      <% if (order.orderStatus === 'Pending') { %>
-                        <button class="btn btn-sm btn-danger"
-                                onclick="cancelOrderItem('<%= order._id %>', '<%= item.productId._id %>')">
-                          Cancel Item
-                        </button>
-                      <% } %>
                       <% if (item.status) { %>
-                        <span class="badge bg-<%= item.status === 'Cancelled' ? 'danger' : 
-                                                item.status === 'Returned' ? 'info' : 
-                                                item.status === 'Return Requested' ? 'warning' : 'success' %>">
+                        <span class="badge bg-<%= 
+                          item.status === 'Cancelled' ? 'danger' : item.status === 'Return Requested' ? 'warning' : item.status === 'Returned' ? 'info' : 'success' %>">
                           <%= item.status %>
                         </span>
                       <% } %>
@@ -193,75 +190,30 @@
 </div>
 
 <style>
-  .status-track {
+  /* New CSS for order actions */
+  .order-actions {
     display: flex;
-    justify-content: space-between;
-    margin: 40px 0;
-    position: relative;
+    flex-wrap: wrap;   /* Allows items to wrap on smaller screens */
+    gap: 0.5rem;       /* Adjust the gap between buttons/badges */
+    align-items: center;
   }
-
-  .status-track::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: #dee2e6;
-    transform: translateY(-50%);
-  }
-
-  .status-step {
-    position: relative;
-    z-index: 1;
-    text-align: center;
-  }
-
-  .status-point {
-    width: 20px;
-    height: 20px;
-    background: #fff;
-    border: 2px solid #dee2e6;
-    border-radius: 50%;
-    margin: 0 auto;
-  }
-
-  .status-step.active .status-point {
-    background: #28a745;
-    border-color: #28a745;
-  }
-
-  .status-label {
-    margin-top: 8px;
-    font-size: 14px;
-  }
-
-  .status-date {
-    font-size: 12px;
-    color: #6c757d;
-  }
-
+  
+  /* Adjust rating styles if needed */
   .rating {
     display: flex;
     flex-direction: row-reverse;
     justify-content: flex-end;
   }
-
   .rating input {
     display: none;
   }
-
   .rating label {
     cursor: pointer;
     font-size: 25px;
     color: #ddd;
     padding: 5px;
   }
-
-  .rating input:checked ~ label {
-    color: #ffd700;
-  }
-
+  .rating input:checked ~ label,
   .rating label:hover,
   .rating label:hover ~ label {
     color: #ffd700;
@@ -269,128 +221,96 @@
 </style>
 
 <script>
-function openReviewModal(productId) {
-  document.getElementById('reviewProductId').value = productId;
-  new bootstrap.Modal(document.getElementById('reviewModal')).show();
-}
+  function openReviewModal(productId) {
+    document.getElementById('reviewProductId').value = productId;
+    new bootstrap.Modal(document.getElementById('reviewModal')).show();
+  }
 
-function requestReturn(orderId) {
-  // Optionally prompt the user for a reason
-  const reason = prompt("Please provide a reason for return (optional):", "");
-  fetch('/returnOrder', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId, reason })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      alert(data.message);
-      // Optionally reload or redirect to update the order status on the page.
-      location.reload();
-    } else {
-      alert(data.message || 'Failed to request return');
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert('Error processing return request');
-  });
-}
-
-function cancelOrderItem(orderId, productId) {
-  Swal.fire({
-    title: 'Are you sure?',
-    text: "You want to cancel this item?",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
-    confirmButtonText: 'Yes, cancel it!'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      fetch('/order/cancelItem', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ orderId, productId })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          Swal.fire(
-            'Cancelled!',
-            'Your item has been cancelled.',
-            'success'
-          ).then(() => {
-            location.reload();
-          });
-        } else {
-          Swal.fire(
-            'Error!',
-            data.message || 'Something went wrong',
-            'error'
-          );
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        Swal.fire(
-          'Error!',
-          'Failed to cancel item',
-          'error'
-        );
-      });
-    }
-  });
-}
-
-function returnOrderItem(orderId, productId) {
-  Swal.fire({
-    title: 'Return Item',
-    text: 'Please provide a reason for return:',
-    input: 'textarea',
-    inputAttributes: {
-      required: true
-    },
-    showCancelButton: true,
-    confirmButtonText: 'Submit Return Request',
-    showLoaderOnConfirm: true,
-    preConfirm: (reason) => {
-      return fetch('/order/returnItem', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ orderId, productId, reason })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (!data.success) {
-          throw new Error(data.message || 'Failed to process return request')
-        }
-        return data;
-      })
-      .catch(error => {
-        Swal.showValidationMessage(error.message);
-      });
-    },
-    allowOutsideClick: () => !Swal.isLoading()
-  }).then((result) => {
-    if (result.isConfirmed) {
-      Swal.fire(
-        'Success!',
-        'Return request submitted successfully',
-        'success'
-      ).then(() => {
+  function requestReturn(orderId) {
+    const reason = prompt("Please provide a reason for return (optional):", "");
+    fetch('/returnOrder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, reason })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert(data.message);
         location.reload();
-      });
-    }
-  });
-}
+      } else {
+        alert(data.message || 'Failed to request return');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error processing return request');
+    });
+  }
+
+  function cancelOrderItem(orderId, itemId) {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: "Cancel only this item? The refund will be credited instantly.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, cancel it!'
+    }).then(result => {
+      if (result.isConfirmed) {
+        fetch('/order/cancelItem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, itemId, reason: "Cancelled by user" })
+        })
+        .then(res => res.json())
+        .then(data => {
+          Swal.fire({
+            icon: data.success ? 'success' : 'error',
+            title: data.success ? 'Cancelled' : 'Error',
+            text: data.message
+          }).then(() => location.reload());
+        })
+        .catch(error => {
+          console.error(error);
+          Swal.fire('Error', 'Failed to cancel item', 'error');
+        });
+      }
+    });
+  }
+
+  function returnOrderItem(orderId, itemId) {
+    Swal.fire({
+      title: 'Return Item',
+      text: 'Please provide a reason for return:',
+      input: 'textarea',
+      inputAttributes: { required: true },
+      showCancelButton: true,
+      confirmButtonText: 'Submit'
+    }).then(result => {
+      if (result.isConfirmed) {
+        fetch('/order/returnItem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, itemId, reason: result.value })
+        })
+        .then(res => res.json())
+        .then(data => {
+          Swal.fire({
+            icon: data.success ? 'success' : 'error',
+            title: data.success ? 'Success' : 'Error',
+            text: data.message
+          }).then(() => location.reload());
+        })
+        .catch(error => {
+          console.error(error);
+          Swal.fire('Error', 'Failed to process return request', 'error');
+        });
+      }
+    });
+  }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-
 <%- include("../../views/partials/user/footer") %>
+
+

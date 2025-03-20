@@ -1,0 +1,84 @@
+<%- include("../../views/partials/admin/header") %>
+
+<div class="container mt-5">
+  <h1>Return Requests</h1>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Order Date</th>
+              <th>Return Requested</th>
+              <th>Reason</th>
+              <th>Amount</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if(returnRequests && returnRequests.length > 0) { %>
+              <% returnRequests.forEach(request => { %>
+                <tr>
+                  <td><a href="/admin/order/<%= request._id %>"><%= request._id %></a></td>
+                  <td><%= request.user.firstName %> <%= request.user.lastName %></td>
+                  <td><%= new Date(request.createdAt).toLocaleDateString() %></td>
+                  <td><%= new Date(request.returnRequest.requestedAt).toLocaleDateString() %></td>
+                  <td><%= request.returnRequest.reason %></td>
+                  <td>₹<%= request.totalAmount %></td>
+                  <td>
+                    <div class="btn-group">
+                      <button class="btn btn-success btn-sm" onclick="processReturn('<%= request._id %>', true)">
+                        Approve
+                      </button>
+                      <button class="btn btn-danger btn-sm" onclick="processReturn('<%= request._id %>', false)">
+                        Decline
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="7" class="text-center">No return requests found</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function processReturn(orderId, approve) {
+  try {
+    const response = await fetch('/admin/process-return-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ orderId, approve })
+    });
+    
+    const data = await response.json();
+    
+    await Swal.fire({
+      icon: data.success ? 'success' : 'error',
+      title: data.success ? 'Success' : 'Error',
+      text: data.message
+    });
+    
+    if (data.success) {
+      location.reload();
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    Swal.fire('Error', 'Something went wrong', 'error');
+  }
+}
+</script>
+
+<%- include("../../views/partials/admin/footer") %>
