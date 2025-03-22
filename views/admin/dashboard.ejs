@@ -1,199 +1,644 @@
-<!-- views/admin/dashboard.ejs -->
 <%- include('../partials/admin/header') %>
+    <style>
+        .loading-state {
+            position: relative;
+        }
 
-<section class="banner-area organic-breadcrumb" style="padding: 50px 0;">
-  <div class="container">
-    <h1>Admin Dashboard</h1>
-    <p>Welcome to the Karma Shop Admin Panel</p>
-  </div>
-</section>
+        .loading-state::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
 
-<div class="content-wrapper">
-    <!-- Dashboard Stats -->
-    <div class="row">
-        <div class="col-xl-3 col-sm-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5>Total Orders</h5>
-                    <h2><%= stats.total.orders %></h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-sm-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5>Total Sales</h5>
-                    <h2>₹<%= stats.total.sales.toFixed(2) %></h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-sm-6 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5>Total Discounts</h5>
-                    <h2>₹<%= stats.total.discount.toFixed(2) %></h2>
-                </div>
-            </div>
-        </div>
-    </div>
+        .loading-state::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4361ee;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 2;
+        }
 
-    <!-- Sales Report Filter Section -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5>Sales Report</h5>
-            <div class="row align-items-center">
-                <div class="col-md-4">
-                    <select id="reportType" class="form-select">
-                        <option value="">-- Select Filter --</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button id="applyReportFilter" class="btn btn-primary">Apply</button>
-                </div>
-            </div>
-            <div class="row align-items-center">
-                <div class="col-md-4">
-                    <div class="btn-group">
-                        <button id="downloadExcel" class="btn btn-success">
-                            <i class="fas fa-file-excel"></i> Excel
-                        </button>
-                        <button id="downloadPDF" class="btn btn-danger ml-2">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
+        @keyframes spin {
+            0% {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+    </style>
+
+    <div class="container py-4">
+        <!-- Global Time Period Filter -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2>Dashboard </h2>
+                            <p>Whole data about your business here</p>
+                        </div>
+                        <div class="form-group mb-0">
+                            <select id="globalFilter" class="form-select" onchange="updateAllCharts()">
+                                <option value="weekly" selected>Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="card-body">
-            <div id="salesReport">
-                <!-- Sales report will be loaded here -->
+
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-lg-3">
+                <div class="card card-body mb-4">
+                    <article class="icontext">
+                        <span class="icon icon-sm rounded-circle bg-primary-light"><i
+                                class="text-primary material-icons md-monetization_on"></i></span>
+                        <div class="text">
+                            <h6 class="mb-1 card-title">Revenue</h6>
+                            <span id="revenueValue">₹ <%= stats.total.sales.toFixed(2) %></span>
+                            <span class="text-sm">
+                                Including Shipping fees
+                            </span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <div class="card card-body mb-4">
+                    <article class="icontext">
+                        <span class="icon icon-sm rounded-circle bg-success-light"><i
+                                class="text-success material-icons md-local_shipping"></i></span>
+                        <div class="text">
+                            <h6 class="mb-1 card-title">Orders</h6>
+                            <span id="ordersValue"><%= stats.total.orders %> orders</span>
+                            <span class="text-sm">
+                                Delivered Orders
+                            </span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <div class="card card-body mb-4">
+                    <article class="icontext">
+                        <span class="icon icon-sm rounded-circle bg-info-light"><i
+                                class="text-info material-icons md-shopping_basket"></i></span>
+                        <div class="text">
+                            <h6 class="mb-1 card-title">Users</h6>
+                            <span id="usersValue">0 users</span>
+                            <span class="text-sm">
+                                Active accounts
+                            </span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <div class="card card-body mb-4">
+                    <article class="icontext">
+                        <span class="icon icon-sm rounded-circle bg-warning-light">
+                            <i class="text-warning material-icons md-qr_code"></i>
+                        </span>
+                        <div class="text">
+                            <h6 class="mb-1 card-title">Products</h6>
+                            <span id="productsValue">0 products</span>
+                            <span id="categoriesCount" class="text-sm">In 0 Categories</span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sales revenue and orders overview -->
+        <div class="row mb-4">
+            <div class="col-md-6 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Sales revenue</h5>
+                        <div style="height: 300px">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Orders overview</h5>
+                        <div style="height: 300px">
+                            <canvas id="ordersChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category and Brand -->
+        <div class="row mb-4">
+            <div class="col-md-6 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Category Performance</h5>
+                        <div style="height: 300px">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Brand Performance</h5>
+                        <div style="height: 300px">
+                            <canvas id="brandChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Best Selling Products -->
+        <div class="row mb-4">
+            <div class="col-md-8 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Best Selling Products</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Category</th>
+                                        <th>Sold</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bestSellingTable">
+                                    <tr>
+                                        <td>productName</td>
+                                        <td>category</td>
+                                        <td>product.totalSales</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Top Performers</h5>
+                        <div class="mb-4">
+                            <p class="mb-1">Best Selling Brand</p>
+                            <h5 id="bestBrand" class="mb-0">bestBrand</h5>
+                            <small id="bestBrandSales" class="text-muted">sales</small>
+                        </div>
+                        <div>
+                            <p class="mb-1">Best Selling Category</p>
+                            <h5 id="bestCategory" class="mb-0">bestCategory</h5>
+                            <small id="bestCategorySales" class="text-muted">bestCategorySales - sales</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Report Download Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Download Reports</h5>
+                        <div class="d-flex gap-2">
+                            <button id="downloadExcel" class="btn btn-success">
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            <button id="downloadPDF" class="btn btn-danger">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<%- include('../partials/admin/footer') %>
+    <%- include("../partials/admin/footer") %>
 
-<script>
-document.getElementById('applyReportFilter').addEventListener('click', async function() {
-    const reportType = document.getElementById('reportType').value;
-    if (!reportType) {
-        Swal.fire('Please select a filter option', '', 'error');
-        return;
-    }
-    // Construct URL with selected reportType.
-    const url = `/admin/sales-report?reportType=${reportType}`;
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.success) {
-            let html = `
-                <div class="table-responsive">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Orders</th>
-                          <th>Total Sales</th>
-                          <th>Discount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-            `;
-            data.salesReport.forEach(day => {
-                html += `
-                    <tr>
-                      <td>${day._id.date}</td>
-                      <td>${day.orderCount}</td>
-                      <td>₹${day.totalAmount.toFixed(2)}</td>
-                      <td>₹${day.discount.toFixed(2)}</td>
-                    </tr>
-                `;
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        let salesChart, ordersChart, categoryChart, brandChart;
+
+        function updateAllCharts() {
+            // Add loading state to charts
+            document.querySelectorAll(".card").forEach(card => {
+                card.classList.add("loading-state");
             });
-            html += `
-                      </tbody>
-                      <tfoot>
+
+            const filter = document.getElementById("globalFilter").value;
+
+            // Update best selling data with the same filter
+            loadBestSelling(filter);
+
+            fetch(`/admin/dashboard-data?filter=${filter}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Dashboard data:', data); // Debug logging
+                document.getElementById("revenueValue").innerText = `₹ ${data.revenue.toLocaleString()}`;
+                document.getElementById("ordersValue").innerText = `${data.totalOrders.toLocaleString()} orders`;
+                document.getElementById("productsValue").innerText = `${data.totalProducts.toLocaleString()} products`;
+                document.getElementById("usersValue").innerText = `${data.totalUsers.toLocaleString()} users`;
+                document.getElementById("categoriesCount").innerText = `In ${data.totalCategories.toLocaleString()} Categories`;
+
+                const categoryLabels = data.categoryPerformance.map(item => item.category);
+                const categoryValues = data.categoryPerformance.map(item => item.totalSales);
+
+                const brandLabels = data.brandPerformance.map(item => item.brand);
+                const brandValues = data.brandPerformance.map(item => item.totalSales);
+
+                const timeLabels = data.timeSeriesData.labels;
+                const revenueData = data.timeSeriesData.revenueData;
+                const orderData = data.timeSeriesData.orderData;
+
+                updateSalesChart(timeLabels, revenueData, filter);
+                updateOrdersChart(timeLabels, orderData, filter);
+                updateCategoryChart(categoryLabels, categoryValues);
+                updateBrandChart(brandLabels, brandValues);
+
+                // Remove loading state
+                document.querySelectorAll(".card").forEach(card => {
+                    card.classList.remove("loading-state");
+                });
+            })
+            .catch(error => {
+                console.error("Error fetching dashboard data:", error);
+
+                document.querySelectorAll(".card").forEach(card => {
+                    card.classList.remove("loading-state");
+                });
+            });
+        }
+
+        function loadBestSelling(filter = "weekly") {
+            document.querySelector(".table").closest(".card").classList.add("loading-state");
+
+            fetch(`/admin/best-selling?filter=${filter}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Best selling data:', data); // Debug logging
+                const productTable = document.getElementById("bestSellingTable");
+
+                if (data.bestSellingProducts.length === 0) {
+                    productTable.innerHTML = '<tr><td colspan="3" class="text-center">No data available</td></tr>';
+                } else {
+                    productTable.innerHTML = data.bestSellingProducts.map(product => `
                         <tr>
-                          <th>Total</th>
-                          <th>${data.totals.orderCount}</th>
-                          <th>₹${data.totals.totalAmount.toFixed(2)}</th>
-                          <th>₹${data.totals.discount.toFixed(2)}</th>
+                            <td>${product.productName}</td>
+                            <td>${product.category}</td>
+                            <td>${product.totalSales}</td>
                         </tr>
-                      </tfoot>
-                    </table>
-                </div>`;
-            document.getElementById('salesReport').innerHTML = html;
-        } else {
-            Swal.fire('Error', data.error, 'error');
-        }
-    } catch (error) {
-        console.error('Error fetching report:', error);
-        Swal.fire('Error', 'Something went wrong!', 'error');
-    }
-});
+                    `).join("");
+                }
 
-document.getElementById('downloadExcel').addEventListener('click', async function() {
-    const reportType = document.getElementById('reportType').value;
-    if (!reportType) {
-        Swal.fire('Please select a filter option first', '', 'warning');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/admin/download-report?reportType=${reportType}&format=excel`, {
-            method: 'GET'
-        });
-        
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `sales-report-${reportType}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            a.remove();
-        } else {
-            throw new Error('Download failed');
-        }
-    } catch (error) {
-        console.error('Error downloading report:', error);
-        Swal.fire('Error', 'Failed to download report', 'error');
-    }
-});
+                // Update top performers
+                document.getElementById("bestBrand").innerText = data.bestSellingBrands[0]?.brand || "N/A";
+                document.getElementById("bestBrandSales").innerText = data.bestSellingBrands[0] ?
+                `${data.bestSellingBrands[0].totalSales} sales` : "0 sales";
 
-document.getElementById('downloadPDF').addEventListener('click', async function() {
-    const reportType = document.getElementById('reportType').value;
-    if (!reportType) {
-        Swal.fire('Please select a filter option first', '', 'warning');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/admin/download-report?reportType=${reportType}&format=pdf`, {
-            method: 'GET'
-        });
-        
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `sales-report-${reportType}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            a.remove();
-        } else {
-            throw new Error('Download failed');
+                document.getElementById("bestCategory").innerText = data.bestSellingCategories[0]?.category || "N/A";
+                document.getElementById("bestCategorySales").innerText = data.bestSellingCategories[0] ?
+                `${data.bestSellingCategories[0].totalSales} sales` : "0 sales";
+
+                // Remove loading state
+                document.querySelector(".table").closest(".card").classList.remove("loading-state");
+            })
+            .catch(error => {
+                console.error("Error fetching best-selling data:", error);
+                document.querySelector(".table").closest(".card").classList.remove("loading-state");
+            });
         }
-    } catch (error) {
-        console.error('Error downloading report:', error);
-        Swal.fire('Error', 'Failed to download report', 'error');
-    }
-});
-</script>
+
+        function formatLabels(labels, filter) {
+            if (filter === "yearly") {
+                return labels.map(label => {
+                    const [year, month] = label.split("-");
+                    const date = new Date(year, parseInt(month) - 1);
+                    return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+                });
+            } else {
+                return labels.map(label => {
+                    const date = new Date(label);
+                    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                });
+            }
+        }
+
+        function updateSalesChart(labels, data, filter) {
+            if (salesChart) salesChart.destroy();
+
+            const formattedLabels = formatLabels(labels, filter);
+            const ctx = document.getElementById("salesChart").getContext("2d");
+
+            salesChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: formattedLabels,
+                    datasets: [{
+                        label: "Revenue (₹)",
+                        data: data,
+                        backgroundColor: "rgba(54, 162, 235, 0.2)",
+                        borderColor: "rgba(54, 162, 235, 1)",
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return '₹' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return `Revenue: ₹${context.raw.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateOrdersChart(labels, data, filter) {
+            if (ordersChart) ordersChart.destroy();
+
+            const formattedLabels = formatLabels(labels, filter);
+            const ctx = document.getElementById("ordersChart").getContext("2d");
+
+            ordersChart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: formattedLabels,
+                    datasets: [{
+                        label: "Orders",
+                        data: data,
+                        backgroundColor: "rgba(75, 192, 192, 0.5)",
+                        borderColor: "rgba(75, 192, 192, 1)",
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCategoryChart(labels, data) {
+            if (categoryChart) categoryChart.destroy();
+            const ctx = document.getElementById("categoryChart").getContext("2d");
+
+            categoryChart = new Chart(ctx, {
+                type: "pie",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Sales",
+                        data: data,
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)',
+                            'rgba(199, 199, 199, 0.7)',
+                            'rgba(83, 102, 255, 0.7)',
+                            'rgba(40, 159, 64, 0.7)',
+                            'rgba(210, 199, 199, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)',
+                            'rgba(83, 102, 255, 1)',
+                            'rgba(40, 159, 64, 1)',
+                            'rgba(210, 199, 199, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 15
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateBrandChart(labels, data) {
+            if (brandChart) brandChart.destroy();
+            const ctx = document.getElementById("brandChart").getContext("2d");
+
+            brandChart = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Sales",
+                        data: data,
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)',
+                            'rgba(199, 199, 199, 0.7)',
+                            'rgba(83, 102, 255, 0.7)',
+                            'rgba(40, 159, 64, 0.7)',
+                            'rgba(210, 199, 199, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)',
+                            'rgba(83, 102, 255, 1)',
+                            'rgba(40, 159, 64, 1)',
+                            'rgba(210, 199, 199, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 15
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Excel and PDF downloads event listeners
+        document.getElementById('downloadExcel').addEventListener('click', async function() {
+            const filter = document.getElementById('globalFilter').value;
+            try {
+                const response = await fetch(`/admin/download-report?reportType=${filter}&format=excel`, {
+                    method: 'GET'
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sales-report-${filter}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                } else {
+                    throw new Error('Download failed');
+                }
+            } catch (error) {
+                console.error('Error downloading report:', error);
+                alert('Failed to download Excel report');
+            }
+        });
+
+        document.getElementById('downloadPDF').addEventListener('click', async function() {
+            const filter = document.getElementById('globalFilter').value;
+            try {
+                const response = await fetch(`/admin/download-report?reportType=${filter}&format=pdf`, {
+                    method: 'GET'
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sales-report-${filter}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                } else {
+                    throw new Error('Download failed');
+                }
+            } catch (error) {
+                console.error('Error downloading report:', error);
+                alert('Failed to download PDF report');
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", () => {
+            updateAllCharts();
+        });
+    </script>

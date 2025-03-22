@@ -1,12 +1,295 @@
 const Order = require('../../models/orderSchema');
 const User = require('../../models/userschema');
+const Product = require('../../models/productSchema');
 const Coupon = require('../../models/couponSchema');
 const XLSX = require('xlsx');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const Category = require('../../models/categorySchema');
 
+// Helper function for date ranges
+function getDateRange(filter) {
+    const endDate = new Date();
+    let startDate = new Date();
+    
+    switch (filter) {
+        case 'monthly':
+            startDate.setMonth(startDate.getMonth() - 1);
+            break;
+        case 'yearly':
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            break;
+        case 'weekly':
+        default:
+            startDate.setDate(startDate.getDate() - 7);
+    }
+    return { startDate, endDate };
+}
 
+// Dashboard Data endpoint
+const getDashboardData = async (req, res) => {
+    try {
+        const filter = req.query.filter || 'weekly';
+        const { startDate, endDate } = getDateRange(filter);
+
+        // Aggregate orders and revenue
+        const stats = await Order.aggregate([
+            { 
+                $match: { 
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalOrders: { $sum: 1 },
+                    totalRevenue: { $sum: "$totalAmount" }
+                }
+            }
+        ]);
+
+        // Get counts
+        const [totalUsers, totalProducts, categories] = await Promise.all([
+            User.countDocuments(),
+            Product.countDocuments(),
+            Category.find({ isListed: true })
+        ]);
+
+        // Time series data for revenue and orders
+        const timeSeriesData = await Order.aggregate([
+            { 
+                $match: { 
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    revenue: { $sum: "$totalAmount" },
+                    orders: { $sum: 1 }
+                }
+            },
+            { $sort: { "_id": 1 } }
+        ]);
+
+        // Category performance
+        const categoryPerformance = await Order.aggregate([
+            { 
+                $match: { 
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                }
+            },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.productId",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "product.category",
+                    foreignField: "_id",
+                    as: "category"
+                }
+            },
+            { $unwind: "$category" },
+            {
+                $group: {
+                    _id: "$category._id",
+                    category: { $first: "$category.name" },
+                    totalSales: { 
+                        $sum: { 
+                            $multiply: ["$items.price", "$items.quantity"] 
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    category: 1,
+                    totalSales: 1,
+                    _id: 0
+                }
+            }
+        ]);
+
+        // Product performance by brand (since your schema doesn't have brand, we'll group by product)
+        const brandPerformance = await Order.aggregate([
+            { 
+                $match: { 
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                }
+            },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.productId",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $group: {
+                    _id: "$product._id",
+                    productName: { $first: "$product.productName" },
+                    totalSales: { 
+                        $sum: { 
+                            $multiply: ["$items.price", "$items.quantity"] 
+                        }
+                    }
+                }
+            },
+            { $sort: { totalSales: -1 } },
+            { $limit: 5 },
+            {
+                $project: {
+                    brand: "$productName", // Using product name instead of brand
+                    totalSales: 1,
+                    _id: 0
+                }
+            }
+        ]);
+
+        res.json({
+            revenue: stats[0]?.totalRevenue || 0,
+            totalOrders: stats[0]?.totalOrders || 0,
+            totalUsers,
+            totalProducts,
+            totalCategories: categories.length,
+            timeSeriesData: {
+                labels: timeSeriesData.map(item => item._id),
+                revenueData: timeSeriesData.map(item => item.revenue),
+                orderData: timeSeriesData.map(item => item.orders)
+            },
+            categoryPerformance,
+            brandPerformance
+        });
+
+    } catch (error) {
+        console.error('Error in getDashboardData:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Best Selling Data endpoint
+const getBestSellingData = async (req, res) => {
+    try {
+        const filter = req.query.filter || 'weekly';
+        const { startDate, endDate } = getDateRange(filter);
+
+        // Best selling products with category information
+        const bestSellingProducts = await Order.aggregate([
+            { 
+                $match: { 
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                }
+            },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.productId",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "product.category",
+                    foreignField: "_id",
+                    as: "category"
+                }
+            },
+            { $unwind: "$category" },
+            {
+                $group: {
+                    _id: "$items.productId",
+                    productName: { $first: "$product.productName" },
+                    category: { $first: "$category.name" },
+                    totalSales: { $sum: "$items.quantity" },
+                    revenue: { 
+                        $sum: { 
+                            $multiply: ["$items.price", "$items.quantity"] 
+                        }
+                    }
+                }
+            },
+            { $sort: { totalSales: -1 } },
+            { $limit: 5 }
+        ]);
+
+        // Best selling categories
+        const bestSellingCategories = await Order.aggregate([
+            { 
+                $match: { 
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                }
+            },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.productId",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "product.category",
+                    foreignField: "_id",
+                    as: "category"
+                }
+            },
+            { $unwind: "$category" },
+            {
+                $group: {
+                    _id: "$category._id",
+                    category: { $first: "$category.name" },
+                    totalSales: { $sum: "$items.quantity" },
+                    revenue: { 
+                        $sum: { 
+                            $multiply: ["$items.price", "$items.quantity"] 
+                        }
+                    }
+                }
+            },
+            { $sort: { totalSales: -1 } },
+            { $limit: 5 }
+        ]);
+
+        res.json({
+            bestSellingProducts,
+            bestSellingCategories,
+            bestSellingBrands: bestSellingProducts.map(product => ({
+                brand: product.productName,
+                totalSales: product.totalSales
+            }))
+        });
+
+    } catch (error) {
+        console.error('Error in getBestSellingData:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
 
 const getDashboardStats = async (req, res) => {
     try {
@@ -115,7 +398,7 @@ const generateSalesReport = async (req, res) => {
                 case 'yearly':
                     const yearAgo = new Date(today);
                     yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-                    dateFilter = { createdAt: { $gte: yearAgo } };
+                    dateFilter = { $gte: yearAgo };
                     break;
                 default:
                     break;
@@ -183,6 +466,48 @@ const generateSalesReport = async (req, res) => {
             { $sort: { "_id.date": -1 } }
         ]);
 
+        // Modify the category performance aggregation
+        const categoryPerformance = await Order.aggregate([
+            { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "categories", // Add lookup to get category name
+                    localField: "items.category",
+                    foreignField: "_id",
+                    as: "categoryDetails"
+                }
+            },
+            { $unwind: "$categoryDetails" },
+            {
+                $group: {
+                    _id: "$categoryDetails._id",
+                    category: { $first: "$categoryDetails.name" }, // Get category name
+                    totalSales: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }
+                }
+            },
+            { $project: { 
+                category: 1,
+                totalSales: 1,
+                _id: 0 
+            }}
+        ]);
+
+        // Modify time series aggregation to include proper date formatting
+        const timeSeriesAgg = await Order.aggregate([
+            { $match: { 
+                createdAt: { $gte: startDate, $lte: endDate },
+                orderStatus: { $nin: ['Cancelled', 'Returned'] } 
+            }},
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    revenue: { $sum: "$totalAmount" },
+                    orders: { $sum: 1 }
+                }
+            },
+            { $sort: { "_id": 1 } }
+        ]);
         
         const totals = salesReport.reduce(
             (acc, day) => ({
@@ -357,6 +682,8 @@ const downloadSalesReport = async (req, res) => {
 
 module.exports = {
     getDashboardStats,
+    getDashboardData,    // Add new function
+    getBestSellingData,  // Add new function
     generateSalesReport,
     downloadSalesReport
 };

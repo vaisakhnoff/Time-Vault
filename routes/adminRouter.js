@@ -30,7 +30,6 @@ const dashboardController = require('../controllers/admin/dashboardController');
 
 
 
-
 router.get('/login',auth.adminAlreadyLoggedIn,adminController.loadLogin);
 router.post('/login',adminController.login)
 // router.get('/dashboard',auth.adminIsLogin,adminController.loadDashboard)
@@ -80,5 +79,9 @@ router.post('/process-return-request', auth.adminIsLogin, orderController.proces
 router.get('/dashboard', auth.adminIsLogin, dashboardController.getDashboardStats);
 router.get('/sales-report', auth.adminIsLogin, dashboardController.generateSalesReport);
 router.get('/download-report', auth.adminIsLogin, dashboardController.downloadSalesReport);
+router.get('/dashboard-data', auth.adminIsLogin, dashboardController.getDashboardData);
+router.get('/best-selling', auth.adminIsLogin, dashboardController.getBestSellingData);
+
+
 
 module.exports =router;
