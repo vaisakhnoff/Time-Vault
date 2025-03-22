@@ -17,7 +17,6 @@ const viewOrderDetails = async (req, res) => {
     const orderId = req.params.id;
     const userId = req.session.user;
 
-    
     const order = await Order.findOne({ _id: orderId, user: userId })
       .populate('items.productId')
       .lean();
@@ -26,23 +25,31 @@ const viewOrderDetails = async (req, res) => {
       return res.redirect('/orders');
     }
 
-    
+    // Check if order is delivered
+    if (order.orderStatus === 'Delivered') {
+      // Get the items that are still eligible for return (no status or status is still pending)
+      const pendingItems = order.items.filter(item => !item.status || item.status === 'Pending');
+
+      // Global return will be available only if:
+      // • There is more than one product in the order
+      // • And ALL items are pending (meaning none have been returned already)
+      order.showGlobalReturn = order.items.length > 1 && pendingItems.length === order.items.length;
+
+      // Individual return buttons show if there is at least one pending item
+      // but if global return is available, we don't show individual returns.
+      order.showIndividualReturn = !order.showGlobalReturn && pendingItems.length > 0;
+    } else {
+      order.showGlobalReturn = false;
+      order.showIndividualReturn = false;
+    }
+
     const addressDoc = await Address.findOne({ userId: userId }).lean();
-console.log("1",addressDoc); 
-
     let selectedAddress = null;
-
-
     if (addressDoc && addressDoc.address && order.address) {
-      console.log("Order address value:", order.address.toString());
-      console.log("User Addresses:", addressDoc.address.map(addr => addr._id.toString()));
       selectedAddress = addressDoc.address.find(addr =>
         addr._id.toString() === order.address.toString()
       );
     }
-
-    console.log("Selected Address:", selectedAddress); 
-   
 
     res.render('orderDetails', {
       user: req.session.user,
@@ -162,31 +169,31 @@ const submitReview = async (req, res) => {
   }
 };
 
-const requestReturnOrder = async (req, res) => {
-  try {
-    const { orderId, reason } = req.body;
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.json({ success: false, message: 'Order not found' });
-    }
+// const requestReturnOrder = async (req, res) => {
+//   try {
+//     const { orderId, reason } = req.body;
+//     const order = await Order.findById(orderId);
+//     if (!order) {
+//       return res.json({ success: false, message: 'Order not found' });
+//     }
     
-    if (order.orderStatus !== 'Delivered') {
-      return res.json({ success: false, message: 'Only delivered orders can be returned' });
-    }
+//     if (order.orderStatus !== 'Delivered') {
+//       return res.json({ success: false, message: 'Only delivered orders can be returned' });
+//     }
 
-    order.orderStatus = 'Return Requested';
-    order.returnRequest = {
-      reason: reason || '',
-      status: 'Requested',
-      requestedAt: new Date()
-    };
-    await order.save();
-    return res.json({ success: true, message: 'Return request submitted. Awaiting admin confirmation.' });
-  } catch (error) {
-    console.error('Error processing return request:', error);
-    return res.json({ success: false, message: 'Error processing return request' });
-  }
-};
+//     order.orderStatus = 'Return Requested';
+//     order.returnRequest = {
+//       reason: reason || '',
+//       status: 'Requested',
+//       requestedAt: new Date()
+//     };
+//     await order.save();
+//     return res.json({ success: true, message: 'Return request submitted. Awaiting admin confirmation.' });
+//   } catch (error) {
+//     console.error('Error processing return request:', error);
+//     return res.json({ success: false, message: 'Error processing return request' });
+//   }
+// };
 
 const createOnlineOrder = async (req, res) => {
   try {
@@ -299,17 +306,9 @@ const walletPaymentOrder = async (req, res) => {
       return res.status(400).json({ error: 'Insufficient wallet balance' });
     }
     
-    // Deduct wallet amount and save a transaction record
+    // Deduct wallet amount and save the user
     user.wallet -= discountedTotal;
     await user.save();
-    
-    const walletTx = new WalletTransaction({
-      userId: userId,
-      amount: discountedTotal,
-      type: "Debit",
-      description: "Payment for order using wallet"
-    });
-    await walletTx.save();
     
     // Create order with payment method set to "Wallet"
     const order = new Order({
@@ -328,17 +327,28 @@ const walletPaymentOrder = async (req, res) => {
     });
     await order.save();
     
+    // Now create the wallet transaction using the saved order's id
+    const walletTx = new WalletTransaction({
+      userId: userId,
+      amount: discountedTotal,
+      type: "Debit",
+      description: `Payment for order id: ${order._id}`
+    });
+    await walletTx.save();
+    
+    // Update products stock
     for (const item of cart.items) {
       await Product.findByIdAndUpdate(item.productId._id, { $inc: { quantity: -item.quantity } });
     }
     cart.items = [];
     await cart.save();
     
-    // Clear any applied coupon from session
+    // Clear applied coupon from session
     req.session.coupon = undefined;
     
     // Respond with order details
     return res.json({ success: true, orderId: order._id });
+    
   } catch (error) {
     console.error('Error processing wallet payment:', error);
     return res.status(500).json({ error: 'Unable to process wallet payment' });
@@ -371,6 +381,9 @@ const cancelOrderItem = async (req, res) => {
         if ((order.paymentMethod === 'Online' || order.paymentMethod === 'Wallet') && order.paymentStatus === 'Completed') {
             const refundAmount = Number(item.price * item.quantity) || 0;
             const currentUser = await User.findById(userId);
+            const product = await Product.findById(item.productId);
+    const productName = product ? product.productName : 'Unknown Product';
+
             if (currentUser) {
                 const currentWallet = Number(currentUser.wallet) || 0;
                 currentUser.wallet = currentWallet + refundAmount;
@@ -379,7 +392,7 @@ const cancelOrderItem = async (req, res) => {
                     userId: currentUser._id,
                     amount: refundAmount,
                     type: 'Credit',
-                    description: `Refund for cancelled item ${item._id} in order ${orderId}`
+                    description: `Refund for cancelled product ${productName} in order id: ${orderId}`
                 }).save();
             }
         }
@@ -431,7 +444,7 @@ module.exports = {
     viewOrderDetails,
     cancelOrder,
     submitReview,
-    requestReturnOrder,
+    // requestReturnOrder,
     createOnlineOrder,
     onlinePaymentSuccess,
     walletPaymentOrder,

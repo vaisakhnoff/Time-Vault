@@ -8,30 +8,6 @@
     <div class="card-header">
       <div class="d-flex justify-content-between align-items-center">
         <h3>Order Details #<%= order._id %></h3>
-        <div>
-          <% if (order.orderStatus === 'Delivered') { %>
-            <% if (order.orderStatus !== 'Return Requested' && order.orderStatus !== 'Returned') { %>
-              <button class="btn btn-warning" onclick="requestReturn('<%= order._id %>')">
-                Request Return
-              </button>
-            <% } %>
-          <% } %>
-          <% 
-            // Filter active items (without a status or status 'Pending')
-            const activeItems = order.items.filter(item => !item.status || item.status === 'Pending');
-          %>
-          <% if (order.orderStatus === 'Pending' && activeItems.length > 0) { %>
-            <form action="/cancelOrder" method="POST" class="d-inline">
-              <input type="hidden" name="orderId" value="<%= order._id %>">
-              <button type="submit" class="btn btn-danger" 
-                      onclick="return confirm('Are you sure you want to cancel this order?')">
-                Cancel Order
-              </button>
-            </form>
-          <% } else if (order.orderStatus === 'Pending') { %>
-            <p>All items have been cancelled.</p>
-          <% } %>
-        </div>
       </div>
     </div>
 
@@ -85,19 +61,17 @@
                   <td>₹<%= item.price * item.quantity %></td>
                   <td>
                     <div class="order-actions">
-                      <% if ((order.items.length > 1 && (!item.status || item.status === 'Pending')) ) { %>
-                        <% if (order.orderStatus === 'Pending') { %>
-                          <button class="btn btn-sm btn-danger"
-                                  onclick="cancelOrderItem('<%= order._id %>', '<%= item._id %>')">
-                            Cancel Item
-                          </button>
-                        <% } %>
-                        <% if (order.orderStatus === 'Delivered' && (!item.status || item.status === 'Pending')) { %>
-                          <button class="btn btn-sm btn-warning"
-                                  onclick="returnOrderItem('<%= order._id %>', '<%= item._id %>')">
-                            Return Item
-                          </button>
-                        <% } %>
+                      <% if (order.orderStatus === 'Pending' && (!item.status || item.status === 'Pending')) { %>
+                        <button class="btn btn-sm btn-danger"
+                                onclick="cancelOrderItem('<%= order._id %>', '<%= item._id %>')">
+                          Cancel Item
+                        </button>
+                      <% } %>
+                      <% if (order.orderStatus === 'Delivered' && (!item.status || item.status === 'Pending')) { %>
+                        <button class="btn btn-sm btn-warning"
+                                onclick="returnOrderItem('<%= order._id %>', '<%= item._id %>')">
+                          Return Item
+                        </button>
                       <% } %>
                       <% if (item.status) { %>
                         <span class="badge bg-<%= 
@@ -148,6 +122,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </div>
 </div>
@@ -224,28 +199,6 @@
   function openReviewModal(productId) {
     document.getElementById('reviewProductId').value = productId;
     new bootstrap.Modal(document.getElementById('reviewModal')).show();
-  }
-
-  function requestReturn(orderId) {
-    const reason = prompt("Please provide a reason for return (optional):", "");
-    fetch('/returnOrder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, reason })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        alert(data.message);
-        location.reload();
-      } else {
-        alert(data.message || 'Failed to request return');
-      }
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      alert('Error processing return request');
-    });
   }
 
   function cancelOrderItem(orderId, itemId) {

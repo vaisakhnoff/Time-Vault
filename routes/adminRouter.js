@@ -73,7 +73,7 @@ router.get('/deleteCoupon', auth.adminIsLogin, couponController.deleteCoupon);
 router.get('/orders', auth.admincheckSession, orderController.listOrders);
 router.get('/order/:id', auth.admincheckSession, orderController.viewOrderDetails);
 router.post('/update-order-status', auth.admincheckSession, orderController.updateOrderStatus);
-router.post('/verify-return-request', auth.admincheckSession, orderController.verifyReturnRequest);
+
 router.get('/return-requests', auth.adminIsLogin, orderController.listReturnRequests);
 router.post('/process-return-request', auth.adminIsLogin, orderController.processReturnRequest);
 

@@ -12,7 +12,7 @@
               <th>Order ID</th>
               <th>Customer</th>
               <th>Order Date</th>
-              <th>Return Requested</th>
+              <th>Product</th>
               <th>Reason</th>
               <th>Amount</th>
               <th>Actions</th>
@@ -22,18 +22,22 @@
             <% if(returnRequests && returnRequests.length > 0) { %>
               <% returnRequests.forEach(request => { %>
                 <tr>
-                  <td><a href="/admin/order/<%= request._id %>"><%= request._id %></a></td>
-                  <td><%= request.user.firstName %> <%= request.user.lastName %></td>
-                  <td><%= new Date(request.createdAt).toLocaleDateString() %></td>
-                  <td><%= new Date(request.returnRequest.requestedAt).toLocaleDateString() %></td>
-                  <td><%= request.returnRequest.reason %></td>
-                  <td>₹<%= request.totalAmount %></td>
+                  <td><a href="/admin/order/<%= request.orderId %>">
+                    <%= request.orderId %>
+                  </a></td>
+                  <td><%= request.customer.firstName %> <%= request.customer.lastName %></td>
+                  <td><%= new Date(request.orderDate).toLocaleDateString() %></td>
+                  <td><%= request.product.productName %></td>
+                  <td><%= request.reason %></td>
+                  <td>₹<%= request.amount %></td>
                   <td>
                     <div class="btn-group">
-                      <button class="btn btn-success btn-sm" onclick="processReturn('<%= request._id %>', true)">
+                      <button class="btn btn-success btn-sm" 
+                              onclick="processReturn('<%= request.orderId %>', true, '<%= request.product._id %>')">
                         Approve
                       </button>
-                      <button class="btn btn-danger btn-sm" onclick="processReturn('<%= request._id %>', false)">
+                      <button class="btn btn-danger btn-sm" 
+                              onclick="processReturn('<%= request.orderId %>', false, '<%= request.product._id %>')">
                         Decline
                       </button>
                     </div>
@@ -53,14 +57,12 @@
 </div>
 
 <script>
-async function processReturn(orderId, approve) {
+async function processReturn(orderId, approve, productId) {
   try {
     const response = await fetch('/admin/process-return-request', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ orderId, approve })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, approve, productId })
     });
     
     const data = await response.json();
