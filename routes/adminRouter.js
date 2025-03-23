@@ -23,9 +23,11 @@ const customerController = require('../controllers/admin/customerController')
 const categoryController = require('../controllers/admin/categoryController')
 const orderController = require('../controllers/admin/orderController');
 const productController = require('../controllers/admin/productController')
-const auth=require('../middleware/admin/auth')
+const auth=  require('../middleware/admin/auth')
 const couponController = require('../controllers/admin/couponController');
 const dashboardController = require('../controllers/admin/dashboardController');
+
+const brandController = require('../controllers/admin/brandcontroller');
 
 
 
@@ -82,6 +84,14 @@ router.get('/download-report', auth.adminIsLogin, dashboardController.downloadSa
 router.get('/dashboard-data', auth.adminIsLogin, dashboardController.getDashboardData);
 router.get('/best-selling', auth.adminIsLogin, dashboardController.getBestSellingData);
 
-
+router.get('/brands', auth.adminIsLogin, brandController.getBrands);
+router.get('/add-brand', auth.adminIsLogin, brandController.getAddBrandPage);
+router.post('/add-brand', auth.adminIsLogin, uploads.single('brandImage'), brandController.addBrand);
+router.get('/edit-brand/:id', auth.adminIsLogin, brandController.getEditBrandPage);
+router.post('/edit-brand/:id', auth.adminIsLogin, uploads.single('brandImage'), brandController.editBrand);
+router.post('/delete-brand/:id', auth.adminIsLogin, brandController.deleteBrand);
+router.post('/toggle-brand-status/:id', auth.adminIsLogin, brandController.toggleBrandStatus);
+router.post('/add-brand-offer', auth.adminIsLogin, brandController.addBrandOffer);
+router.post('/remove-brand-offer', auth.adminIsLogin, brandController.removeBrandOffer);
 
 module.exports =router;

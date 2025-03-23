@@ -1,6 +1,7 @@
 const Product = require('../../models/productSchema');
 const Category = require('../../models/categorySchema');
 const User = require("../../models/userschema");
+const Brand = require('../../models/brandSchema');
 
 
 const productDetails = async(req,res)=>{
@@ -17,6 +18,7 @@ const productDetails = async(req,res)=>{
         
         const product = await Product.findById(productId)
             .populate('category')
+            .populate('brand')
             .lean();
 
         
@@ -36,6 +38,7 @@ const productDetails = async(req,res)=>{
             _id: { $ne: productId },
             isBlocked: false
         })
+        .populate('brand')
         .limit(4)
         .lean();
 

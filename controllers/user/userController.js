@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const passport = require("passport");
 
 const Category = require('../../models/categorySchema');
+const Brand = require('../../models/brandSchema');
 const Product = require('../../models/productSchema');
 const WalletTransaction = require('../../models/walletSchema');
 
@@ -390,7 +391,100 @@ res.redirect('/')
   })(req, res, next);
 };
 
-  const loadShopPage = async(req, res) => {
+//   const loadShopPage = async(req, res) => {
+//     try {
+//         const page = parseInt(req.query.page) || 1;
+//         const limit = 9;
+//         const skip = (page - 1) * limit;
+
+//         const userId = req.session.user;
+//         const userData = await User.findById(userId).lean();
+        
+      
+//         let query = { isBlocked: false };
+        
+      
+//         if (req.query.search) {
+//             query.productName = { $regex: req.query.search, $options: 'i' };
+//         }
+
+        
+//         if (req.query.category) {
+//             query.category = req.query.category;
+//         }
+
+       
+//         if (req.query.minPrice || req.query.maxPrice) {
+//             query.regularPrice = {};
+//             if (req.query.minPrice) {
+//                 query.regularPrice.$gte = parseInt(req.query.minPrice);
+//             }
+//             if (req.query.maxPrice) {
+//                 query.regularPrice.$lte = parseInt(req.query.maxPrice);
+//             }
+//         }
+
+      
+//         const categories = await Category.find({ isListed: true });
+
+       
+//         let sortQuery = {};
+//         switch(req.query.sort) {
+//             case 'price_asc':
+//                 sortQuery = { regularPrice: 1 };
+//                 break;
+//             case 'price_desc':
+//                 sortQuery = { regularPrice: -1 };
+//                 break;
+//             case 'name_asc':
+//                 sortQuery = { productName: 1 };
+//                 break;
+//             case 'name_desc':
+//                 sortQuery = { productName: -1 };
+//                 break;
+//             case 'newest':
+//                 sortQuery = { createdAt: -1 };
+//                 break;
+//             default:
+//                 sortQuery = { createdAt: -1 };
+//         }
+
+//         let products = await Product.find(query)
+//             .populate('category')
+//             .sort(sortQuery)
+//             .skip(skip)
+//             .limit(limit)
+//             .lean();
+
+        
+//         products = products.map(product => ({
+//             ...product,
+//             productImage: product.productImage.map(img => `/uploads/product-images/${img}`)
+//         }));
+
+//         const totalProducts = await Product.countDocuments(query);
+//         const totalPages = Math.ceil(totalProducts / limit);
+
+//         res.render('shop', {
+//             products,
+//             currentPage: page,
+//             totalPages,
+//             categories,
+//             selectedCategory: req.query.category || '',
+//             searchQuery: req.query.search || '',
+//             sort: req.query.sort || '',
+//             minPrice: req.query.minPrice || '',
+//             maxPrice: req.query.maxPrice || '',
+//             user:userData
+//         });
+
+//     } catch (error) {
+//         console.error("Error loading shop page:", error);
+//         res.redirect('/pageNotFound');
+//     }
+// }
+
+const loadShopPage = async(req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = 9;
@@ -399,20 +493,24 @@ res.redirect('/')
         const userId = req.session.user;
         const userData = await User.findById(userId).lean();
         
-      
         let query = { isBlocked: false };
         
-      
+        // Search filter
         if (req.query.search) {
             query.productName = { $regex: req.query.search, $options: 'i' };
         }
 
-        
+        // Category filter
         if (req.query.category) {
             query.category = req.query.category;
         }
 
-       
+        // Brand filter
+        if (req.query.brand) {
+            query.brand = req.query.brand;
+        }
+
+        // Price range filter
         if (req.query.minPrice || req.query.maxPrice) {
             query.regularPrice = {};
             if (req.query.minPrice) {
@@ -423,10 +521,9 @@ res.redirect('/')
             }
         }
 
-      
         const categories = await Category.find({ isListed: true });
+        const brands = await Brand.find({ isBlocked: false }); // Add this line
 
-       
         let sortQuery = {};
         switch(req.query.sort) {
             case 'price_asc':
@@ -441,21 +538,25 @@ res.redirect('/')
             case 'name_desc':
                 sortQuery = { productName: -1 };
                 break;
-            case 'newest':
-                sortQuery = { createdAt: -1 };
+            case 'brand_asc':
+                sortQuery = { 'brand.brandName': 1 };
                 break;
+            case 'brand_desc':
+                sortQuery = { 'brand.brandName': -1 };
+                break;
+            case 'newest':
             default:
                 sortQuery = { createdAt: -1 };
         }
 
         let products = await Product.find(query)
             .populate('category')
+            .populate('brand') // Add this line
             .sort(sortQuery)
             .skip(skip)
             .limit(limit)
             .lean();
 
-        
         products = products.map(product => ({
             ...product,
             productImage: product.productImage.map(img => `/uploads/product-images/${img}`)
@@ -469,19 +570,21 @@ res.redirect('/')
             currentPage: page,
             totalPages,
             categories,
+            brands, // Add this
             selectedCategory: req.query.category || '',
+            selectedBrand: req.query.brand || '', // Add this
             searchQuery: req.query.search || '',
             sort: req.query.sort || '',
             minPrice: req.query.minPrice || '',
             maxPrice: req.query.maxPrice || '',
-            user:userData
+            user: userData
         });
 
     } catch (error) {
         console.error("Error loading shop page:", error);
         res.redirect('/pageNotFound');
     }
-}
+};
 
 const forgotPassword = async (req,res)=>{
 

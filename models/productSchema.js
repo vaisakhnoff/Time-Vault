@@ -12,7 +12,12 @@ const productSchema = new Schema({
   },
   category: {
     type: Schema.Types.ObjectId,
-    ref: 'category', // Or 'Category' if your model is named "Category"
+    ref: 'category',
+    required: true
+  },
+  brand: {
+    type: Schema.Types.ObjectId,
+    ref: 'brand',
     required: true
   },
   regularPrice: {

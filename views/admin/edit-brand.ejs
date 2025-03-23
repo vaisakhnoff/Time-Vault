@@ -1,0 +1,91 @@
+<%- include("../../views/partials/admin/header") %>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Edit Brand</h3>
+                    <a href="/admin/brands" class="btn btn-secondary float-right">Back to Brands</a>
+                </div>
+                <div class="card-body">
+                    <form action="/admin/edit-brand/<%= brand._id %>" method="POST" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="brandName">Brand Name</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="brandName" 
+                                   name="brandName" 
+                                   value="<%= brand.brandName %>"
+                                   required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Current Image</label>
+                            <div class="mb-3">
+                                <img src="/uploads/product-images/<%= brand.brandImage[0] %>" 
+                                     alt="Current Brand Image" 
+                                     style="max-width: 200px;">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="brandImage">Update Image</label>
+                            <input type="file" 
+                                   class="form-control-file" 
+                                   id="brandImage" 
+                                   name="brandImage" 
+                                   accept="image/*">
+                            <small class="form-text text-muted">
+                                Leave empty to keep current image
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <div id="imagePreview" style="max-width: 200px; display: none;">
+                                <label>New Image Preview</label>
+                                <img id="preview" src="" alt="Image Preview" class="img-fluid mt-2">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Update Brand</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Image preview functionality
+    document.getElementById('brandImage').addEventListener('change', function(e) {
+        const preview = document.getElementById('preview');
+        const previewContainer = document.getElementById('imagePreview');
+        
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                preview.src = event.target.result;
+                previewContainer.style.display = 'block';
+            }
+            
+            reader.readAsDataURL(e.target.files[0]);
+        } else {
+            previewContainer.style.display = 'none';
+        }
+    });
+
+    // Form validation
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const brandName = document.getElementById('brandName').value.trim();
+        
+        if (!brandName) {
+            e.preventDefault();
+            alert('Please enter a brand name');
+            return;
+        }
+    });
+</script>
+
+<%- include("../../views/partials/admin/footer") %>

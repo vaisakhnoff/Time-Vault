@@ -41,11 +41,18 @@
               <div id="productName-error" class="error-message"></div>
             </div>
 
-            <!-- Brand Field -->
+            <!-- Replace the existing brand field with this dropdown -->
             <div class="mb-4">
-              <label class="form-label">Brand</label>
-              <input type="text" name="brand" value="<%= product.brand || '' %>" class="form-control border">
-              <div id="brand-error" class="error-message"></div>
+                <label class="form-label">Brand</label>
+                <select class="form-select border" name="brand">
+                    <% brands.forEach(function(brandItem){ %>
+                        <option value="<%= brandItem.brandName %>" 
+                            <%= product.brand && product.brand._id.toString() === brandItem._id.toString() ? "selected" : "" %>>
+                            <%= brandItem.brandName %>
+                        </option>
+                    <% }); %>
+                </select>
+                <div id="brand-error" class="error-message"></div>
             </div>
 
             <!-- Description Field -->
@@ -174,6 +181,13 @@ function validateForm() {
     displayErrorMessage('salePrice-error', 'Please enter a valid non-negative sale price.');
     isValid = false;
   }
+  
+  const brand = document.getElementsByName('brand')[0].value;
+  if (brand.trim() === "") {
+    displayErrorMessage('brand-error', 'Please select a brand.');
+    isValid = false;
+  }
+  
   return isValid;
 }
 

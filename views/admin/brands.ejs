@@ -1,0 +1,271 @@
+<%- include("../../views/partials/admin/header") %>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Brands</h3>
+                    <a href="/admin/add-brand" class="btn btn-primary float-right">Add New Brand</a>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Brand Name</th>
+                                <th>Image</th>
+                                <th>Created At</th>
+                                <th>Offer</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% brands.forEach(brand => { %>
+                            <tr data-brand-id="<%= brand._id %>">
+                                <td><%= brand.brandName %></td>
+                                <td>
+                                    <img src="/uploads/product-images/<%= brand.brandImage[0] %>" 
+                                         alt="<%= brand.brandName %>" 
+                                         style="max-width: 100px;">
+                                </td>
+                                <td><%= new Date(brand.createdAt).toLocaleDateString() %></td>
+                                <td class="offer-cell">
+                                    <% if (brand.brandOffer > 0) { %>
+                                        <span class="badge badge-info"><%= brand.brandOffer %>% OFF</span>
+                                        <button class="btn btn-sm btn-danger remove-offer" 
+                                                data-id="<%= brand._id %>">
+                                            Remove Offer
+                                        </button>
+                                    <% } else { %>
+                                        <button class="btn btn-sm btn-success add-offer" 
+                                                data-id="<%= brand._id %>">
+                                            Add Offer
+                                        </button>
+                                    <% } %>
+                                </td>
+                                <td class="status-cell">
+                                    <span class="badge <%= brand.isBlocked ? 'badge-danger' : 'badge-success' %>">
+                                        <%= brand.isBlocked ? 'Unlisted' : 'Listed' %>
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="/admin/edit-brand/<%= brand._id %>" class="btn btn-sm btn-info">Edit</a>
+                                    <button class="btn btn-sm btn-danger delete-brand" 
+                                            data-id="<%= brand._id %>">Delete</button>
+                                    <button class="btn btn-sm <%= brand.isBlocked ? 'btn-success' : 'btn-warning' %> toggle-status" 
+                                            data-id="<%= brand._id %>"
+                                            data-status="<%= brand.isBlocked %>">
+                                        <%= brand.isBlocked ? 'List' : 'Unlist' %>
+                                    </button>
+                                </td>
+                            </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Toast notification function
+function showToast(message, type = 'success') {
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: type,
+        title: message,
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
+// Handle status toggle (list/unlist)
+document.querySelectorAll('.toggle-status').forEach(button => {
+    button.addEventListener('click', async function() {
+        const brandId = this.dataset.id;
+        const currentStatus = this.dataset.status === 'true';
+        
+        try {
+            const response = await fetch(`/admin/toggle-brand-status/${brandId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ isBlocked: !currentStatus })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                // Update button appearance
+                this.textContent = currentStatus ? 'Unlist' : 'List';
+                this.classList.toggle('btn-success');
+                this.classList.toggle('btn-warning');
+                this.dataset.status = (!currentStatus).toString();
+
+                // Update status cell
+                const statusCell = this.closest('tr').querySelector('.status-cell');
+                const statusBadge = statusCell.querySelector('.badge');
+                statusBadge.textContent = currentStatus ? 'Listed' : 'Unlisted';
+                statusBadge.classList.toggle('badge-success');
+                statusBadge.classList.toggle('badge-danger');
+
+                showToast(`Brand ${currentStatus ? 'listed' : 'unlisted'} successfully`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Failed to update brand status', 'error');
+        }
+    });
+});
+
+// Enhanced delete functionality
+document.querySelectorAll('.delete-brand').forEach(button => {
+    button.addEventListener('click', async function() {
+        const brandId = this.dataset.id;
+        
+        const result = await Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch(`/admin/delete-brand/${brandId}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.closest('tr').remove();
+                    showToast('Brand deleted successfully');
+                } else {
+                    showToast('Failed to delete brand', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to delete brand', 'error');
+            }
+        }
+    });
+});
+
+// Handle offer management
+document.querySelectorAll('.add-offer').forEach(button => {
+    button.addEventListener('click', async function() {
+        const brandId = this.dataset.id;
+        
+        const { value: offerPercentage } = await Swal.fire({
+            title: 'Enter offer percentage',
+            input: 'number',
+            inputLabel: 'Offer Percentage',
+            inputPlaceholder: 'Enter percentage (1-99)',
+            inputAttributes: {
+                min: 1,
+                max: 99
+            },
+            showCancelButton: true,
+            inputValidator: (value) => {
+                if (!value || value < 1 || value > 99) {
+                    return 'Please enter a valid percentage between 1 and 99';
+                }
+            }
+        });
+
+        if (offerPercentage) {
+            try {
+                const response = await fetch('/admin/add-brand-offer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ brandId, offerPercentage })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    const offerCell = this.closest('td');
+                    offerCell.innerHTML = `
+                        <span class="badge badge-info">${offerPercentage}% OFF</span>
+                        <button class="btn btn-sm btn-danger remove-offer" data-id="${brandId}">
+                            Remove Offer
+                        </button>
+                    `;
+                    showToast('Offer added successfully');
+                    
+                    // Add event listener to new remove button
+                    addRemoveOfferListener(offerCell.querySelector('.remove-offer'));
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to add offer', 'error');
+            }
+        }
+    });
+});
+
+function addRemoveOfferListener(button) {
+    button.addEventListener('click', async function() {
+        const brandId = this.dataset.id;
+        
+        const result = await Swal.fire({
+            title: 'Are you sure?',
+            text: "Do you want to remove this offer?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, remove it!'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch('/admin/remove-brand-offer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ brandId })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    const offerCell = this.closest('td');
+                    offerCell.innerHTML = `
+                        <button class="btn btn-sm btn-success add-offer" data-id="${brandId}">
+                            Add Offer
+                        </button>
+                    `;
+                    showToast('Offer removed successfully');
+                    
+                    // Add event listener to new add button
+                    offerCell.querySelector('.add-offer').addEventListener('click', 
+                        document.querySelector('.add-offer').addEventListener('click'));
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to remove offer', 'error');
+            }
+        }
+    });
+}
+
+// Add listeners to existing remove offer buttons
+document.querySelectorAll('.remove-offer').forEach(button => {
+    addRemoveOfferListener(button);
+});
+</script>
+
+<%- include("../../views/partials/admin/footer") %>

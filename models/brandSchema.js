@@ -6,6 +6,10 @@ const brandSchema = new Schema({
         type:String,
         required:true
     },
+    brandOffer: {
+        type: Number,
+        default: 0
+    },
     brandImage:{
         type:[String],
         required:true

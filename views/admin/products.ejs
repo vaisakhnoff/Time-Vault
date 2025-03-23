@@ -121,19 +121,23 @@
   <% products.forEach(function(product) { %>
     <tr data-product-id="<%= product._id %>">
       <td><%= product.productName %></td>
-      <td><%= product.brand || "N/A" %></td>
+      <td><%= product.brand ? product.brand.brandName : 'N/A' %></td>
       <td><%= product.category?.name || "Uncategorized" %></td>
       <td>₹<%= product.regularPrice %></td>
       <td data-price-type="sale">₹<%= product.salePrice %></td>
       <td id="offer-value-<%= product._id %>">
-        <% if(product.category?.categoryOffer && product.productOffer) { %>
-          <span class="badge bg-info">Category: <%= product.category.categoryOffer %>%</span>
-          <span class="badge bg-success">Product: <%= product.productOffer %>%</span>
-          <span class="badge bg-warning">Applied: <%= Math.max(product.category.categoryOffer, product.productOffer) %>%</span>
-        <% } else if(product.category?.categoryOffer) { %>
-          <span class="badge bg-info">Category: <%= product.category.categoryOffer %>%</span>
-        <% } else if(product.productOffer) { %>
-          <span class="badge bg-success">Product: <%= product.productOffer %>%</span>
+        <% if(product.category?.categoryOffer || product.brand?.brandOffer || product.productOffer) { %>
+          <% if(product.category?.categoryOffer) { %>
+            <span class="badge bg-info">Category: <%= product.category.categoryOffer %>%</span>
+          <% } %>
+          <% if(product.brand?.brandOffer) { %>
+            <span class="badge bg-secondary">Brand: <%= product.brand.brandOffer %>%</span>
+          <% } %>
+          <% if(product.productOffer) { %>
+            <span class="badge bg-success">Product: <%= product.productOffer %>%</span>
+          <% } %>
+          <!-- The applied discount in the UI can be calculated on the fly if needed -->
+          <span class="badge bg-warning">Applied: <%= Math.max(product.category?.categoryOffer || 0, product.brand?.brandOffer || 0, product.productOffer || 0) %>%</span>
         <% } else { %>
           0%
         <% } %>
