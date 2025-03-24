@@ -269,19 +269,45 @@ const updateProfile = async (req, res) => {
     }
 };
 
-const userAddress = async(req,res)=>{
+const userAddress = async (req, res) => {
     try {
         const userId = req.session.user;
         const userData = await User.findById(userId).lean();
         
-       
-        const addresses = await Address.find({ userId: userId });
-      
+        
+        const addressDoc = await Address.findOne({ userId: userId });
+        
+        if (!addressDoc) {
+            return res.render('userAddress', {
+                user: userData,
+                addresses: [],
+                currentPage: 1,
+                totalPages: 0,
+                message: req.query.message || ''
+            });
+        }
+
+        const perPage = 3; 
+        const page = parseInt(req.query.page) || 1; 
         
         
+        const totalAddresses = addressDoc.address.length;
+        const totalPages = Math.ceil(totalAddresses / perPage);
+        
+        const startIndex = (page - 1) * perPage;
+        const endIndex = startIndex + perPage;
+        const paginatedAddresses = addressDoc.address.slice(startIndex, endIndex);
+        
+        const formattedAddresses = [{
+            _id: addressDoc._id,
+            address: paginatedAddresses
+        }];
+
         res.render('userAddress', {
             user: userData,
-            addresses: addresses,
+            addresses: formattedAddresses,
+            currentPage: page,
+            totalPages: totalPages,
             message: req.query.message || ''
         });
 

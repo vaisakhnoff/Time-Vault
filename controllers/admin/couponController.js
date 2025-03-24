@@ -13,7 +13,15 @@ const couponInfo = async (req, res) => {
 
 const addCoupon = async (req, res) => {
     try {
-        const { couponName, startDate, endDate, offerPrice, minimumPrice } = req.body;
+        const { couponName, couponCode, startDate, endDate, offerPrice, minimumPrice, maxPrice } = req.body;
+
+        // Validate that coupon code and name are different
+        if (couponName.toUpperCase() === couponCode) {
+            return res.status(400).json({
+                success: false,
+                message: 'Coupon code must be different from coupon name'
+            });
+        }
 
         // Validate dates
         const startDateObj = new Date(startDate);
@@ -28,40 +36,42 @@ const addCoupon = async (req, res) => {
             });
         }
 
-        if (endDateObj <= startDateObj) {
-            return res.status(400).json({
-                success: false,
-                message: 'End date must be after start date'
-            });
-        }
-
         // Validate prices
-        if (parseInt(offerPrice) >= parseInt(minimumPrice)) {
+        const offerPriceNum = parseInt(offerPrice);
+        const minimumPriceNum = parseInt(minimumPrice);
+        const maxPriceNum = parseInt(maxPrice);
+
+        if (offerPriceNum >= minimumPriceNum || minimumPriceNum >= maxPriceNum) {
             return res.status(400).json({
                 success: false,
-                message: 'Offer price must be less than minimum price'
+                message: 'Invalid price range: Offer Price < Minimum Price < Maximum Price'
             });
         }
 
-        // Check if coupon name exists
-        const existingCoupon = await Coupon.findOne({ 
-            name: couponName,
+        // Check if coupon name or code exists
+        const existingCoupon = await Coupon.findOne({
+            $or: [
+                { name: couponName },
+                { couponCode: couponCode }
+            ],
             expireOn: { $gt: new Date() }
         });
 
         if (existingCoupon) {
             return res.status(400).json({
                 success: false,
-                message: 'Active coupon with this name already exists'
+                message: 'Active coupon with this name or code already exists'
             });
         }
 
         const newCoupon = new Coupon({
             name: couponName,
+            couponCode: couponCode,
             createdOn: new Date(),
             expireOn: endDateObj,
-            offerPrice: parseInt(offerPrice),
-            minimumPrice: parseInt(minimumPrice),
+            offerPrice: offerPriceNum,
+            minimumPrice: minimumPriceNum,
+            maxPrice: maxPriceNum,
             isList: true
         });
 
@@ -98,7 +108,24 @@ const getEditCoupon = async (req, res) => {
 
 const editCoupon = async (req, res) => {
     try {
-        const { couponId, couponName, startDate, endDate, offerPrice, minimumPrice } = req.body;
+        const { 
+            couponId, 
+            couponName, 
+            couponCode, 
+            startDate, 
+            endDate, 
+            offerPrice, 
+            minimumPrice, 
+            maxPrice 
+        } = req.body;
+
+        // Validate that coupon code and name are different
+        if (couponName.toUpperCase() === couponCode) {
+            return res.status(400).json({
+                success: false,
+                message: 'Coupon code must be different from coupon name'
+            });
+        }
 
         // Validate dates
         const endDateObj = new Date(endDate);
@@ -113,16 +140,23 @@ const editCoupon = async (req, res) => {
         }
 
         // Validate prices
-        if (parseInt(offerPrice) >= parseInt(minimumPrice)) {
+        const offerPriceNum = parseInt(offerPrice);
+        const minimumPriceNum = parseInt(minimumPrice);
+        const maxPriceNum = parseInt(maxPrice);
+
+        if (offerPriceNum >= minimumPriceNum || minimumPriceNum >= maxPriceNum) {
             return res.status(400).json({
                 success: false,
-                message: 'Offer price must be less than minimum price'
+                message: 'Invalid price range: Offer Price < Minimum Price < Maximum Price'
             });
         }
 
-        // Check if name exists (excluding current coupon)
+        // Check if name or code exists (excluding current coupon)
         const existingCoupon = await Coupon.findOne({
-            name: couponName,
+            $or: [
+                { name: couponName },
+                { couponCode: couponCode }
+            ],
             _id: { $ne: couponId },
             expireOn: { $gt: new Date() }
         });
@@ -130,7 +164,7 @@ const editCoupon = async (req, res) => {
         if (existingCoupon) {
             return res.status(400).json({
                 success: false,
-                message: 'Another active coupon with this name exists'
+                message: 'Another active coupon with this name or code exists'
             });
         }
 
@@ -138,9 +172,11 @@ const editCoupon = async (req, res) => {
             couponId,
             {
                 name: couponName,
+                couponCode: couponCode,
                 expireOn: endDateObj,
-                offerPrice: parseInt(offerPrice),
-                minimumPrice: parseInt(minimumPrice)
+                offerPrice: offerPriceNum,
+                minimumPrice: minimumPriceNum,
+                maxPrice: maxPriceNum
             },
             { new: true }
         );
@@ -157,7 +193,7 @@ const editCoupon = async (req, res) => {
             message: 'Coupon updated successfully'
         });
     } catch (error) {
-        console.error('Error updating coupon:', error) ;
+        console.error('Error updating coupon:', error);
         return res.status(500).json({
             success: false,
             message: 'Internal server error'

@@ -72,6 +72,38 @@
     </div>
 </div>
 
+<div class="container mt-3">
+    <nav aria-label="Brand pagination">
+        <ul class="pagination justify-content-center">
+            <% if (currentPage > 1) { %>
+                <li class="page-item">
+                    <a class="page-link" href="?page=<%= currentPage - 1 %>">Previous</a>
+                </li>
+            <% } else { %>
+                <li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                </li>
+            <% } %>
+
+            <% for(let i = 1; i <= totalPages; i++) { %>
+                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                    <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                </li>
+            <% } %>
+
+            <% if (currentPage < totalPages) { %>
+                <li class="page-item">
+                    <a class="page-link" href="?page=<%= currentPage + 1 %>">Next</a>
+                </li>
+            <% } else { %>
+                <li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                </li>
+            <% } %>
+        </ul>
+    </nav>
+</div>
+
 <script>
 // Toast notification function
 function showToast(message, type = 'success') {
@@ -160,8 +192,8 @@ document.querySelectorAll('.delete-brand').forEach(button => {
     });
 });
 
-// Handle offer management
-document.querySelectorAll('.add-offer').forEach(button => {
+// Attach "Add Offer" listener to a button element.
+function attachAddOfferListener(button) {
     button.addEventListener('click', async function() {
         const brandId = this.dataset.id;
         
@@ -186,14 +218,12 @@ document.querySelectorAll('.add-offer').forEach(button => {
             try {
                 const response = await fetch('/admin/add-brand-offer', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ brandId, offerPercentage })
                 });
-
                 const data = await response.json();
                 if (data.success) {
+                    // Replace the offer cell content with remove button and offer badge
                     const offerCell = this.closest('td');
                     offerCell.innerHTML = `
                         <span class="badge badge-info">${offerPercentage}% OFF</span>
@@ -202,9 +232,9 @@ document.querySelectorAll('.add-offer').forEach(button => {
                         </button>
                     `;
                     showToast('Offer added successfully');
-                    
-                    // Add event listener to new remove button
-                    addRemoveOfferListener(offerCell.querySelector('.remove-offer'));
+                    // Attach remove listener on the new remove button
+                    const newRemoveBtn = offerCell.querySelector('.remove-offer');
+                    attachRemoveOfferListener(newRemoveBtn);
                 } else {
                     showToast(data.message, 'error');
                 }
@@ -214,9 +244,10 @@ document.querySelectorAll('.add-offer').forEach(button => {
             }
         }
     });
-});
+}
 
-function addRemoveOfferListener(button) {
+// Attach "Remove Offer" listener to a button element.
+function attachRemoveOfferListener(button) {
     button.addEventListener('click', async function() {
         const brandId = this.dataset.id;
         
@@ -232,14 +263,12 @@ function addRemoveOfferListener(button) {
             try {
                 const response = await fetch('/admin/remove-brand-offer', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ brandId })
                 });
-
                 const data = await response.json();
                 if (data.success) {
+                    // Replace the offer cell content with add button
                     const offerCell = this.closest('td');
                     offerCell.innerHTML = `
                         <button class="btn btn-sm btn-success add-offer" data-id="${brandId}">
@@ -247,10 +276,9 @@ function addRemoveOfferListener(button) {
                         </button>
                     `;
                     showToast('Offer removed successfully');
-                    
-                    // Add event listener to new add button
-                    offerCell.querySelector('.add-offer').addEventListener('click', 
-                        document.querySelector('.add-offer').addEventListener('click'));
+                    // Attach add listener on the new add button
+                    const newAddBtn = offerCell.querySelector('.add-offer');
+                    attachAddOfferListener(newAddBtn);
                 } else {
                     showToast(data.message, 'error');
                 }
@@ -262,9 +290,12 @@ function addRemoveOfferListener(button) {
     });
 }
 
-// Add listeners to existing remove offer buttons
+// Initially attach event listeners for both add-offer and remove-offer buttons.
+document.querySelectorAll('.add-offer').forEach(button => {
+    attachAddOfferListener(button);
+});
 document.querySelectorAll('.remove-offer').forEach(button => {
-    addRemoveOfferListener(button);
+    attachRemoveOfferListener(button);
 });
 </script>
 

@@ -41,6 +41,22 @@
     cursor: pointer;
     border-radius: 4px;
   }
+
+  .is-invalid {
+    border-color: #dc3545 !important;
+  }
+
+  .invalid-feedback {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+
+  select.form-control {
+    appearance: auto;
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+  }
 </style>
 
 <div class="container address-form-container">
@@ -111,6 +127,108 @@
       });
     }
   });
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    
+    // Validation patterns
+    const patterns = {
+        name: /^[a-zA-Z\s]{2,50}$/,
+        addressType: /^(home|work|other)$/i,
+        city: /^[a-zA-Z\s]{2,50}$/,
+        landMark: /^.{3,100}$/,
+        state: /^[a-zA-Z\s]{2,50}$/,
+        pincode: /^\d{6}$/,
+        phone_no: /^\d{10}$/,
+        altPhone_no: /^\d{10}$/
+    };
+
+    // Error messages
+    const errorMessages = {
+        name: 'Name should be 2-50 characters long and contain only letters',
+        addressType: 'Address type must be home, work, or other',
+        city: 'City should be 2-50 characters long and contain only letters',
+        landMark: 'Landmark should be 3-100 characters long',
+        state: 'State should be 2-50 characters long and contain only letters',
+        pincode: 'Pincode should be exactly 6 digits',
+        phone_no: 'Phone number should be exactly 10 digits',
+        altPhone_no: 'Alternative phone number should be exactly 10 digits'
+    };
+
+    // Add input event listeners for real-time validation
+    Object.keys(patterns).forEach(field => {
+        const input = document.getElementById(field);
+        if (input) {
+            input.addEventListener('input', function() {
+                validateField(this, patterns[field], errorMessages[field]);
+            });
+        }
+    });
+
+    // Form submission handler
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        let isValid = true;
+        const formData = new FormData(form);
+
+        // Validate all fields
+        for (const [field, pattern] of Object.entries(patterns)) {
+            const value = formData.get(field);
+            if (!pattern.test(value)) {
+                isValid = false;
+                showError(document.getElementById(field), errorMessages[field]);
+            }
+        }
+
+        // Check if phone numbers are different
+        if (formData.get('phone_no') === formData.get('altPhone_no')) {
+            isValid = false;
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Primary and alternative phone numbers cannot be same'
+            });
+            return;
+        }
+
+        if (isValid) {
+            form.submit();
+        }
+    });
+
+    // Helper function to validate individual fields
+    function validateField(input, pattern, errorMessage) {
+        const isValid = pattern.test(input.value);
+        if (!isValid) {
+            showError(input, errorMessage);
+        } else {
+            clearError(input);
+        }
+        return isValid;
+    }
+
+    // Helper function to show error
+    function showError(input, message) {
+        clearError(input);
+        input.classList.add('is-invalid');
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'invalid-feedback';
+        errorDiv.textContent = message;
+        input.parentNode.appendChild(errorDiv);
+    }
+
+    // Helper function to clear error
+    function clearError(input) {
+        input.classList.remove('is-invalid');
+        const errorDiv = input.parentNode.querySelector('.invalid-feedback');
+        if (errorDiv) {
+            errorDiv.remove();
+        }
+    }
+});
 </script>
 
 <%- include("../../views/partials/user/footer") %>

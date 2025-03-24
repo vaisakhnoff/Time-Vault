@@ -56,6 +56,7 @@
                         </div>
                         <div class="form-group mb-0">
                             <select id="globalFilter" class="form-select" onchange="updateAllCharts()">
+                                <option value="daily">Daily</option>
                                 <option value="weekly" selected>Weekly</option>
                                 <option value="monthly">Monthly</option>
                                 <option value="yearly">Yearly</option>
@@ -370,10 +371,21 @@
                     const date = new Date(year, parseInt(month) - 1);
                     return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
                 });
+            } else if (filter === "daily") {
+                return labels.map(label => {
+                    const date = new Date(label);
+                    return date.toLocaleTimeString(undefined, { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                });
             } else {
                 return labels.map(label => {
                     const date = new Date(label);
-                    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    return date.toLocaleDateString(undefined, { 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
                 });
             }
         }

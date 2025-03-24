@@ -205,15 +205,15 @@
   document.addEventListener('DOMContentLoaded', function() {
   const updateSubtotal = () => {
     let subtotal = 0;
-    document.querySelectorAll('.item-total').forEach(total => {
-      subtotal += parseFloat(total.textContent.replace('$', ''));
+    document.querySelectorAll('.item-total').forEach(totalElem => {
+      subtotal += parseFloat(totalElem.textContent.replace('₹', ''));
     });
-    document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+    document.getElementById('subtotal').textContent = `₹${subtotal.toFixed(2)}`;
   };
 
   // Function to update the cart in the database
   const updateCartItem = (productId, quantity) => {
-    fetch('/updateCart', {
+    return fetch('/updateCart', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items: [{ productId, quantity }] })
@@ -221,12 +221,9 @@
     .then(response => response.json())
     .then(data => {
       if (!data.success) {
-        swal("Error", data.message || "Failed to update cart", "error");
+        throw new Error(data.message || "Failed to update cart");
       }
-    })
-    .catch(error => {
-      console.error('Error updating cart:', error);
-      swal("Error", "An error occurred while updating your cart.", "error");
+      return data;
     });
   };
 
@@ -237,12 +234,20 @@
       const qtyInput = row.querySelector('.qty');
       const productId = row.getAttribute('data-product-id');
       let qty = parseInt(qtyInput.value);
+      
       if (qty < 4) {
-        qtyInput.value = qty + 1;
-        const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('$', ''));
-        row.querySelector('.item-total').textContent = `$${(price * (qty + 1)).toFixed(2)}`;
-        updateSubtotal();
-        updateCartItem(productId, qty + 1); // Sync with database
+        const newQty = qty + 1;
+        const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('₹', ''));
+        
+        updateCartItem(productId, newQty)
+          .then(() => {
+            qtyInput.value = newQty;
+            row.querySelector('.item-total').textContent = `₹${(price * newQty).toFixed(2)}`;
+            updateSubtotal();
+          })
+          .catch(error => {
+            swal("Error", error.message, "error");
+          });
       } else {
         swal("Maximum Quantity", "The maximum quantity allowed is 4.", "info");
       }
@@ -256,12 +261,20 @@
       const qtyInput = row.querySelector('.qty');
       const productId = row.getAttribute('data-product-id');
       let qty = parseInt(qtyInput.value);
+      
       if (qty > 1) {
-        qtyInput.value = qty - 1;
+        const newQty = qty - 1;
         const price = parseFloat(row.querySelector('td[data-label="Price"] h5').textContent.replace('₹', ''));
-        row.querySelector('.item-total').textContent = `₹${(price * (qty - 1)).toFixed(2)}`;
-        updateSubtotal();
-        updateCartItem(productId, qty - 1); // Sync with database
+        
+        updateCartItem(productId, newQty)
+          .then(() => {
+            qtyInput.value = newQty;
+            row.querySelector('.item-total').textContent = `₹${(price * newQty).toFixed(2)}`;
+            updateSubtotal();
+          })
+          .catch(error => {
+            swal("Error", error.message, "error");
+          });
       } else {
         swal("Minimum Quantity", "The minimum quantity allowed is 1.", "warning");
       }

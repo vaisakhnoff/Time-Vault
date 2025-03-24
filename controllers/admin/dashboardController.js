@@ -8,12 +8,18 @@ const fs = require('fs');
 const path = require('path');
 const Category = require('../../models/categorySchema');
 
-// Helper function for date ranges
+
 function getDateRange(filter) {
     const endDate = new Date();
     let startDate = new Date();
     
     switch (filter) {
+        case 'daily':
+            // Set start date to beginning of today
+            startDate.setHours(0, 0, 0, 0);
+            // Set end date to end of today
+            endDate.setHours(23, 59, 59, 999);
+            break;
         case 'monthly':
             startDate.setMonth(startDate.getMonth() - 1);
             break;
@@ -27,7 +33,7 @@ function getDateRange(filter) {
     return { startDate, endDate };
 }
 
-// Dashboard Data endpoint
+
 const getDashboardData = async (req, res) => {
     try {
         const filter = req.query.filter || 'weekly';
@@ -57,7 +63,7 @@ const getDashboardData = async (req, res) => {
             Category.find({ isListed: true })
         ]);
 
-        // Time series data for revenue and orders
+        // Modify the time series aggregation for daily view
         const timeSeriesData = await Order.aggregate([
             { 
                 $match: { 
@@ -67,7 +73,19 @@ const getDashboardData = async (req, res) => {
             },
             {
                 $group: {
-                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    _id: filter === 'daily' 
+                        ? { 
+                            $dateToString: { 
+                                format: "%Y-%m-%d %H:00:00", 
+                                date: "$createdAt" 
+                            }
+                        }
+                        : { 
+                            $dateToString: { 
+                                format: "%Y-%m-%d", 
+                                date: "$createdAt" 
+                            }
+                        },
                     revenue: { $sum: "$totalAmount" },
                     orders: { $sum: 1 }
                 }

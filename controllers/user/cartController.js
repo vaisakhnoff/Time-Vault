@@ -155,6 +155,9 @@ const checkoutPage = async (req, res) => {
       minimumPrice: { $lte: cartTotal },
     }).lean();
 
+  
+
+
     if (addressData && addressData.length > 0) {
       userData.addressId = addressData[0]._id;
     }
@@ -325,6 +328,78 @@ const updateCart = async (req, res) => {
   }
 };
 
+// const applyCoupon = async (req, res) => {
+//   try {
+//     console.log("Applying coupon...");
+//     const { couponCode } = req.body;
+//     if (!couponCode || couponCode.trim() === "") {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Please enter a coupon code" });
+//     }
+//     if (req.session.coupon) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "A coupon is already applied" });
+//     }
+
+  
+//     const coupon = await Coupon.findOne({
+//       couponCode: { $regex: new RegExp("^" + couponCode.trim() + "$", "i") },
+//       isList: true,
+//     });
+//     if (!coupon) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Coupon not found" });
+//     }
+//     if (new Date() > coupon.expireOn) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Coupon has expired" });
+//     }
+//     const userId = req.session.user;
+//     const cart = await Cart.findOne({ userId })
+//       .populate("items.productId")
+//       .lean();
+//     if (!cart || !cart.items.length) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Your cart is empty" });
+//     }
+//     const cartTotal = cart.items.reduce((total, item) => {
+//       return total + item.productId.salePrice * item.quantity;
+//     }, 0);
+//     if (cartTotal < coupon.minimumPrice) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Cart total must be at least ₹${coupon.minimumPrice} to apply this coupon`,
+//       });
+//     }
+
+//     // Store coupon details using couponCode instead of name
+//     req.session.coupon = {
+//       _id: coupon._id,
+//       code: coupon.couponCode, // <-- using coupon code for display!
+//       offerPrice: coupon.offerPrice,
+//       minimumPrice: coupon.minimumPrice,
+//     };
+
+//     return res.json({
+//       success: true,
+//       message: "Coupon applied",
+//       coupon: req.session.coupon,
+//       cartTotal,        // Original cart total without discount
+//       discount: coupon.offerPrice,
+//       grandTotal: cartTotal - coupon.offerPrice,
+//     });
+//   } catch (error) {
+//     console.error("Error applying coupon:", error);
+//     return res
+//       .status(500)
+//       .json({ success: false, message: "Internal server error" });
+//   }
+// };
 const applyCoupon = async (req, res) => {
   try {
     const { couponCode } = req.body;
@@ -340,7 +415,7 @@ const applyCoupon = async (req, res) => {
     }
 
     const coupon = await Coupon.findOne({
-      name: { $regex: new RegExp("^" + couponCode.trim() + "$", "i") },
+      couponCode: { $regex: new RegExp("^" + couponCode.trim() + "$", "i") },
       isList: true,
     });
     if (!coupon) {
@@ -353,6 +428,7 @@ const applyCoupon = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Coupon has expired" });
     }
+
     const userId = req.session.user;
     const cart = await Cart.findOne({ userId })
       .populate("items.productId")
@@ -372,26 +448,26 @@ const applyCoupon = async (req, res) => {
       });
     }
 
+    // Store coupon details consistently
     req.session.coupon = {
       _id: coupon._id,
-      name: coupon.name,
+      code: coupon.couponCode,
       offerPrice: coupon.offerPrice,
       minimumPrice: coupon.minimumPrice,
     };
-     return res.json({
+
+    return res.json({
       success: true,
       message: "Coupon applied",
-      coupon: req.session.coupon,
-      cartTotal,        // Original cart total without discount
+      coupon: {
+        code: coupon.couponCode,  // Use code consistently
+        offerPrice: coupon.offerPrice,
+        minimumPrice: coupon.minimumPrice
+      },
+      cartTotal,
       discount: coupon.offerPrice,
       grandTotal: cartTotal - coupon.offerPrice,
     });
-    
-    // res.json({
-    //   success: true,
-    //   message: "Coupon applied successfully",
-    //   coupon: req.session.coupon,
-    // });
   } catch (error) {
     console.error("Error applying coupon:", error);
     return res
@@ -399,23 +475,6 @@ const applyCoupon = async (req, res) => {
       .json({ success: false, message: "Internal server error" });
   }
 };
-
-// const removeCoupon = async (req, res) => {
-//   try {
-//     if (!req.session.coupon) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "No coupon applied" });
-//     }
-//     req.session.coupon = undefined;
-//     return res.json({ success: true, message: "Coupon removed successfully" });
-//   } catch (error) {
-//     console.error("Error removing coupon:", error);
-//     return res
-//       .status(500)
-//       .json({ success: false, message: "Internal server error" });
-//   }
-// };
 
 const removeCoupon = async (req, res) => {
   try {

@@ -73,6 +73,17 @@
                <div id="error-coupon-name" class="error-message"></div>
              </div>
 
+             <div class="mb-4">
+                <label for="coupon-code" class="form-label">Coupon Code</label>
+                <input
+                    type="text"
+                    id="coupon-code"
+                    name="couponCode"
+                    placeholder="Enter unique coupon code"
+                    class="form-control"
+                />
+                <div id="error-coupon-code" class="error-message"></div>
+            </div>
 
              <div>
                <label for="startingDate" class="form-label">Start Date</label>
@@ -125,6 +136,17 @@
                <div id="error-minimum-price" class="error-message"></div>
              </div>
 
+             <div>
+                <label for="max-price" class="form-label">Maximum Price</label>
+                <input
+                    type="text"
+                    name="maxPrice"
+                    id="max-price"
+                    placeholder="Type here"
+                    class="form-control"
+                />
+                <div id="error-max-price" class="error-message"></div>
+            </div>
 
              <div class="d-grid">
                <button
@@ -146,10 +168,12 @@
           <thead>
             <tr>
               <th>Name</th>
+              <th>Code</th>
               <th>Created On</th>
               <th>Expire On</th>
               <th>Offer Price</th>
-              <th>Minimum Price</th>
+              <th>Min Price</th>
+              <th>Max Price</th>
               <th>Status</th>
               <th>Edit/Delete</th>
             </tr>
@@ -159,10 +183,12 @@
               <% coupons.forEach(function(coupon) { %>
                 <tr>
                   <td class="text-start"><%= coupon.name %></td>
+                  <td class="text-start"><%= coupon.couponCode %></td>
                   <td class="text-start"><%= new Date(coupon.createdOn).toLocaleDateString() %></td>
                   <td class="text-start"><%= new Date(coupon.expireOn).toLocaleDateString() %></td>
                   <td class="text-start">₹<%= coupon.offerPrice %></td>
                   <td class="text-start">₹<%= coupon.minimumPrice %></td>
+                  <td class="text-start">₹<%= coupon.maxPrice %></td>
                   <td class="text-start"><%= coupon.isList ? 'Active' : 'Inactive' %></td>
                   <td class="text-start">
                     <a href="/admin/editCoupon?id=<%= coupon._id %>" class="btn btn-primary btn-sm">Edit</a>
@@ -172,7 +198,7 @@
               <% }); %>
             <% } else { %>
               <tr>
-                <td colspan="7" class="text-center">No coupons found</td>
+                <td colspan="9" class="text-center">No coupons found</td>
               </tr>
             <% } %>
           </tbody>
@@ -211,43 +237,54 @@
 
 
    let name = document.getElementsByName("couponName")[0].value;
+   let code = document.getElementsByName("couponCode")[0].value;
    const nameRegex = /^[A-Za-z0-9]{1,50}$/;
-
+   const codeRegex = /^[A-Z0-9]{4,10}$/;
 
    if (!nameRegex.test(name)) {
-     document.getElementById("error-coupon-name").innerHTML =
-       "Coupon Name error";
-     return false;
+       document.getElementById("error-coupon-name").innerHTML = 
+           "Coupon Name should only contain alphanumeric characters and be between 1 to 50 characters.";
+       return false;
    }
 
+   if (!codeRegex.test(code)) {
+       document.getElementById("error-coupon-code").innerHTML = 
+           "Coupon Code should be 4-10 characters long and contain only uppercase letters and numbers.";
+       return false;
+   }
+
+   if (name.toUpperCase() === code) {
+       document.getElementById("error-coupon-code").innerHTML = 
+           "Coupon Code must be different from Coupon Name";
+       return false;
+   }
 
    const offerPriceInput = document.getElementsByName("offerPrice")[0];
    const minimumPriceInput = document.getElementsByName("minimumPrice")[0];
+   const maxPriceInput = document.getElementsByName("maxPrice")[0];
 
+   const offerPrice = offerPriceInput.value.trim() !== "" ? parseInt(offerPriceInput.value) : NaN;
+   const minimumPrice = minimumPriceInput.value.trim() !== "" ? parseInt(minimumPriceInput.value) : NaN;
+   const maxPrice = maxPriceInput.value.trim() !== "" ? parseInt(maxPriceInput.value) : NaN;
 
-   const offerPrice = offerPriceInput.value.trim() !== ""? parseInt(offerPriceInput.value): NaN;
-   const minimumPrice = minimumPriceInput.value.trim() !== ""? parseInt(minimumPriceInput.value): NaN;
-
-
-   if (isNaN(offerPrice) || isNaN(minimumPrice) || offerPrice >= minimumPrice) {
-     document.getElementById("error-offer-price").innerHTML = "Offer Price must be greater than Minimum Price";
-     return false;
+   if (isNaN(offerPrice) || isNaN(minimumPrice) || isNaN(maxPrice)) {
+       document.getElementById("error-offer-price").innerHTML = 
+           "Please enter valid numeric values for all price fields";
+       return false;
    }
 
-
-   if (isNaN(offerPrice) || isNaN(minimumPrice)) {
-     document.getElementById("error-offer-price").innerHTML ="Please enter numeric values for Offer Price and Minimum Price";
-     return false;
+   if (offerPrice >= minimumPrice) {
+       document.getElementById("error-offer-price").innerHTML = 
+           "Offer Price must be less than Minimum Price";
+       return false;
    }
 
+   if (minimumPrice >= maxPrice) {
+       document.getElementById("error-max-price").innerHTML = 
+           "Maximum Price must be greater than Minimum Price";
+       return false;
+   }
 
-       const formData = {
-       couponName: name,
-       startDate: sDateObj,
-       endDate: eDateObj,
-       offerPrice: offerPrice,
-       minimumPrice: minimumPrice
-   };
    return true;
  }
 
@@ -309,10 +346,12 @@ document.querySelector('form').addEventListener('submit', async function(e) {
             },
             body: JSON.stringify({
                 couponName: formData.get('couponName'),
+                couponCode: formData.get('couponCode'),
                 startDate: formData.get('startDate'),
                 endDate: formData.get('endDate'),
                 offerPrice: formData.get('offerPrice'),
-                minimumPrice: formData.get('minimumPrice')
+                minimumPrice: formData.get('minimumPrice'),
+                maxPrice: formData.get('maxPrice')
             })
         });
 

@@ -77,6 +77,18 @@
              <div id="error-coupon-name" class="error-message"></div>
            </div>
 
+           <div class="mb-4">
+             <label for="coupon-code" class="form-label">Coupon Code</label>
+             <input
+               type="text"
+               id="coupon-code"
+               value="<%=findCoupon.couponCode%>"
+               name="couponCode"
+               placeholder="Enter unique coupon code"
+               class="form-control"
+             />
+             <div id="error-coupon-code" class="error-message"></div>
+           </div>
 
            <div>
              <label for="startingDate" class="form-label">Start Date</label>
@@ -130,6 +142,20 @@
              />
              <div id="error-minimum-price" class="error-message"></div>
            </div>
+
+           <div>
+             <label for="max-price" class="form-label">Maximum Price</label>
+             <input
+               type="text"
+               name="maxPrice"
+               id="max-price"
+               placeholder="Type here"
+               class="form-control"
+               value="<%=findCoupon.maxPrice%>"
+             />
+             <div id="error-max-price" class="error-message"></div>
+           </div>
+
            <div class="d-grid">
              <button " type="submit" class="btn btn-primary mt-20">Update Coupon</button>
            </div>
@@ -197,53 +223,47 @@
 
 
    let name = document.getElementsByName("couponName")[0].value;
+   let code = document.getElementsByName("couponCode")[0].value;
    const nameRegex = /^[A-Za-z0-9]{1,50}$/;
-
+   const codeRegex = /^[A-Z0-9]{4,10}$/;
 
    if (!nameRegex.test(name)) {
      document.getElementById("error-coupon-name").innerHTML ="Coupon Name should only contain alphanumeric characters and be between 1 to 50 characters.";
      return false;
    }
 
+   if (!codeRegex.test(code)) {
+     document.getElementById("error-coupon-code").innerHTML ="Coupon Code should be 4-10 characters long and contain only uppercase letters and numbers.";
+     return false;
+   }
+
+   if (name.toUpperCase() === code) {
+     document.getElementById("error-coupon-code").innerHTML ="Coupon Code must be different from Coupon Name";
+     return false;
+   }
 
    const offerPriceInput = document.getElementsByName("offerPrice")[0];
    const minimumPriceInput = document.getElementsByName("minimumPrice")[0];
-
+   const maxPriceInput = document.getElementsByName("maxPrice")[0];
 
    const offerPrice =offerPriceInput.value.trim() !== ""? parseInt(offerPriceInput.value): NaN;
    const minimumPrice =minimumPriceInput.value.trim() !== ""? parseInt(minimumPriceInput.value): NaN;
+   const maxPrice = maxPriceInput.value.trim() !== "" ? parseInt(maxPriceInput.value) : NaN;
 
-
-   if (isNaN(offerPrice)) {
-     document.getElementById("error-offer-price").innerHTML =
-       "Please enter a valid numeric value for Offer Price";
+   if (isNaN(offerPrice) || isNaN(minimumPrice) || isNaN(maxPrice)) {
+     document.getElementById("error-offer-price").innerHTML ="Please enter valid numeric values for all price fields";
      return false;
    }
-
-
-   if (isNaN(minimumPrice)) {
-     document.getElementById("error-minimum-price").innerHTML ="Please enter a valid numeric value for Minimum Price";
-     return false;
-   }
-
-
-   if (offerPrice < 0) {
-     document.getElementById("error-offer-price").innerHTML ="Offer Price must be a positive number";
-     return false;
-   }
-
-
-   if (minimumPrice < 0) {
-     document.getElementById("error-minimum-price").innerHTML ="Minimum Price must be a positive number";
-     return false;
-   }
-
 
    if (offerPrice >= minimumPrice) {
      document.getElementById("error-offer-price").innerHTML ="Offer Price must be less than Minimum Price";
      return false;
    }
 
+   if (minimumPrice >= maxPrice) {
+     document.getElementById("error-max-price").innerHTML ="Maximum Price must be greater than Minimum Price";
+     return false;
+   }
 
    return true;
  }
@@ -253,10 +273,12 @@
     const formData = {
         couponId: document.getElementById("coupon-id").value,
         couponName: document.getElementById("coupon-name").value,
+        couponCode: document.getElementById("coupon-code").value,
         startDate: document.getElementById("startingDate").value,
         endDate: document.getElementById("expiringDate").value,
         offerPrice: document.getElementById("offer-price").value,
         minimumPrice: document.getElementById("minimum-price").value,
+        maxPrice: document.getElementById("max-price").value
     };
 
     fetch('/admin/editCoupon', {

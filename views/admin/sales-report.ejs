@@ -1,0 +1,210 @@
+<%- include("../../views/partials/admin/header") %>
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Sales Report</h1>
+    
+    <!-- Filter Controls -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Filter Type</label>
+                        <select class="form-control" id="filterType">
+                            <option value="all">All Time</option>
+                            <option value="daily">Today</option>
+                            <option value="weekly">This Week</option>
+                            <option value="monthly">This Month</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6" id="dateRangeContainer" style="display: none;">
+                    <div class="form-group">
+                        <label>Date Range</label>
+                        <div class="input-group">
+                            <input type="date" class="form-control" id="startDate">
+                            <div class="input-group-append">
+                                <span class="input-group-text">to</span>
+                            </div>
+                            <input type="date" class="form-control" id="endDate">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-primary" onclick="applyFilter()">Apply Filter</button>
+                <div class="btn-group ml-2">
+                    <button class="btn btn-success" onclick="downloadReport('excel')">
+                        Download Excel
+                    </button>
+                    <button class="btn btn-danger" onclick="downloadReport('pdf')">
+                        Download PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-4 col-md-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-white-50">Total Orders</div>
+                            <div class="h3" id="totalOrders"><%= salesData.totalOrders %></div>
+                        </div>
+                        <i class="fas fa-shopping-cart fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-white-50">Total Revenue</div>
+                            <div class="h3" id="totalAmount">₹<%= salesData.totalAmount.toFixed(2) %></div>
+                        </div>
+                        <i class="fas fa-rupee-sign fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-white-50">Total Coupon Savings</div>
+                            <div class="h3" id="couponDiscount">₹<%= salesData.totalCouponDiscount.toFixed(2) %></div>
+                        </div>
+                        <i class="fas fa-ticket-alt fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-table me-1"></i>
+            Sales Details
+        </div>
+        <div class="card-body">
+            <table id="salesTable" class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Items</th>
+                        <th>Original Amount</th>
+                        <th>Coupon Applied</th>
+                        <th>Final Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="salesTableBody">
+                    <% orders.forEach(function(order) { 
+                        const originalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                        const actualCouponDiscount = originalAmount - order.totalAmount;
+                    %>
+                        <tr>
+                            <td><%= order._id %></td>
+                            <td><%= order.createdAt.toLocaleDateString() %></td>
+                            <td><%= order.user.firstName %> <%= order.user.lastName %></td>
+                            <td>
+                                <% order.items.forEach(function(item) { %>
+                                    <%= item.productId.productName %> (₹<%= item.price %> × <%= item.quantity %>)<br>
+                                <% }); %>
+                            </td>
+                            <td>₹<%= originalAmount.toFixed(2) %></td>
+                            <td>₹<%= actualCouponDiscount.toFixed(2) %></td>
+                            <td>₹<%= order.totalAmount.toFixed(2) %></td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('filterType').addEventListener('change', function() {
+    const dateRangeContainer = document.getElementById('dateRangeContainer');
+    dateRangeContainer.style.display = this.value === 'custom' ? 'block' : 'none';
+});
+
+async function applyFilter() {
+    const filterType = document.getElementById('filterType').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    try {
+        const response = await fetch('/admin/sales-report/filter', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ filterType, startDate, endDate })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            updateSalesReport(data);
+        } else {
+            alert('Error applying filter');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error applying filter');
+    }
+}
+
+function updateSalesReport(data) {
+    // Update summary cards
+    document.getElementById('totalOrders').textContent = data.salesData.totalOrders;
+    document.getElementById('totalAmount').textContent = '₹' + data.salesData.totalAmount.toFixed(2);
+    document.getElementById('couponDiscount').textContent = '₹' + data.salesData.totalCouponDiscount.toFixed(2);
+
+    // Update table
+    const tableBody = document.getElementById('salesTableBody');
+    tableBody.innerHTML = data.orders.map(order => {
+        const originalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const actualCouponDiscount = originalAmount - order.totalAmount;
+        return `
+            <tr>
+                <td>${order._id}</td>
+                <td>${new Date(order.createdAt).toLocaleDateString()}</td>
+                <td>${order.user.firstName} ${order.user.lastName}</td>
+                <td>${order.items.map(item => 
+                    `${item.productId.productName} (₹${item.price} × ${item.quantity})`).join('<br>')}</td>
+                <td>₹${originalAmount.toFixed(2)}</td>
+                <td>₹${actualCouponDiscount.toFixed(2)}</td>
+                <td>₹${order.totalAmount.toFixed(2)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function downloadReport(format) {
+    const filterType = document.getElementById('filterType').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    const queryParams = new URLSearchParams({
+        format,
+        filterType,
+        startDate,
+        endDate
+    });
+
+    window.location.href = `/admin/sales-report/download?${queryParams.toString()}`;
+}
+</script>
+
+
+<%- include("../../views/partials/admin/footer") %>

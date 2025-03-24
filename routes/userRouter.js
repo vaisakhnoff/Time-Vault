@@ -31,6 +31,8 @@ router.post('/resetPassword', userController.resetPassword)
 router.get('/productDetails',productController.productDetails);
 router.get('/shopPage',userController.loadShopPage);
 
+
+
 router.get('/userProfile',auth.checkSession,profileController.userProfile)
 router.get('/changeEmail',auth.checkSession,profileController.changeEmail);
 router.post('/changeEmail',auth.checkSession,profileController.changeEmailValid)

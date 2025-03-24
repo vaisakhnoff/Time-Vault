@@ -28,6 +28,7 @@ const couponController = require('../controllers/admin/couponController');
 const dashboardController = require('../controllers/admin/dashboardController');
 
 const brandController = require('../controllers/admin/brandcontroller');
+const salesReportController = require('../controllers/admin/salesReportController');
 
 
 
@@ -79,7 +80,7 @@ router.get('/return-requests', auth.adminIsLogin, orderController.listReturnRequ
 router.post('/process-return-request', auth.adminIsLogin, orderController.processReturnRequest);
 
 router.get('/dashboard', auth.adminIsLogin, dashboardController.getDashboardStats);
-router.get('/sales-report', auth.adminIsLogin, dashboardController.generateSalesReport);
+// router.get('/sales-report', auth.adminIsLogin, dashboardController.generateSalesReport);
 router.get('/download-report', auth.adminIsLogin, dashboardController.downloadSalesReport);
 router.get('/dashboard-data', auth.adminIsLogin, dashboardController.getDashboardData);
 router.get('/best-selling', auth.adminIsLogin, dashboardController.getBestSellingData);
@@ -93,5 +94,10 @@ router.post('/delete-brand/:id', auth.adminIsLogin, brandController.deleteBrand)
 router.post('/toggle-brand-status/:id', auth.adminIsLogin, brandController.toggleBrandStatus);
 router.post('/add-brand-offer', auth.adminIsLogin, brandController.addBrandOffer);
 router.post('/remove-brand-offer', auth.adminIsLogin, brandController.removeBrandOffer);
+
+// Sales Report Routes
+router.get('/sales-report', auth.adminIsLogin, salesReportController.getSalesReport);
+router.post('/sales-report/filter', auth.adminIsLogin, salesReportController.filterSalesReport);
+router.get('/sales-report/download', auth.adminIsLogin, salesReportController.downloadSalesReport);
 
 module.exports =router;
