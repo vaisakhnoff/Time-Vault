@@ -527,6 +527,19 @@ const userOrders = async (req, res) => {
   
       const totalOrders = await Order.countDocuments({ user: userId });
       const totalPages = Math.ceil(totalOrders / limit);
+
+      function calculateDisplayStatus(items) {
+        const statuses = items.map(item => item.status);
+        const uniqueStatuses = new Set(statuses);
+        if (uniqueStatuses.size === 1) {
+          return statuses[0];
+        }
+        return 'Mixed Status';
+      }
+      
+      orders.forEach(order => {
+        order.computedDisplayStatus = calculateDisplayStatus(order.items);
+      });
   
       res.render('userOrders', {
         user: userData,

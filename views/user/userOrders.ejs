@@ -14,12 +14,16 @@
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <div>
                   <h6 class="mb-1">Order #<%= order._id %></h6>
-                  <small class="text-muted">Ordered on <%= new Date(order.createdAt).toLocaleDateString() %></small>
+                  <small class="text-muted">
+                    Ordered on <%= new Date(order.createdAt).toLocaleDateString() %>
+                  </small>
                 </div>
-                <span class="badge bg-<%= order.orderStatus === 'Delivered' ? 'success' :
-                                      order.orderStatus === 'Cancelled' ? 'danger' :
-                                      'warning' %>">
-                  <%= order.orderStatus %>
+                <span class="badge bg-<%= 
+                  order.computedDisplayStatus === 'Delivered' ? 'success' :
+                  order.computedDisplayStatus === 'Cancelled' ? 'danger' :
+                  order.computedDisplayStatus === 'Mixed Status' ? 'info' :
+                  'warning' %>">
+                  <%= order.computedDisplayStatus %>
                 </span>
               </div>
 

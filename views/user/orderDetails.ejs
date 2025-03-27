@@ -129,57 +129,45 @@
       <!-- Order Status Timeline -->
       <div class="order-timeline mb-4">
         <div class="timeline-container">
-          <% 
-            // Define normal timeline statuses
-            const normalStatuses = ['Pending', 'Shipped', 'Out for Delivery', 'Delivered'];
-          %>
-          <% if(normalStatuses.includes(order.orderStatus)) { 
-               // Determine current status index
-               const currentIndex = normalStatuses.indexOf(order.orderStatus);
-          %>
-            <div class="timeline">
-              <% normalStatuses.forEach((status, index) => { %>
-                <div class="timeline-item <%= index <= currentIndex ? 'active' : '' %>">
-                  <div class="timeline-icon">
-                    <% if (status === 'Pending') { %>
-                      <i class="fa fa-clock-o"></i>
-                    <% } else if (status === 'Shipped') { %>
-                      <i class="fa fa-truck"></i>
-                    <% } else if (status === 'Out for Delivery') { %>
-                      <i class="fa fa-motorcycle"></i>
-                    <% } else if (status === 'Delivered') { %>
-                      <i class="fa fa-check-circle"></i>
-                    <% } %>
-                  </div>
-                  <div class="timeline-content">
-                    <h5><%= status %></h5>
-                    <% if (order.statusUpdates && order.statusUpdates[status]) { %>
-                      <p class="text-muted">
-                        <%= new Date(order.statusUpdates[status]).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
-                      </p>
-                    <% } %>
-                  </div>
+          <!-- Overall Order Status -->
+          <div class="overall-status mb-3">
+            <h5>Order Status: 
+              <span class="badge bg-<%= 
+                order.computedDisplayStatus === 'Cancelled' ? 'danger' :
+                order.computedDisplayStatus === 'Delivered' ? 'success' :
+                order.computedDisplayStatus === 'Mixed Status' ? 'info' :
+                'warning' %>">
+                <%= order.computedDisplayStatus %>
+              </span>
+            </h5>
+          </div>
+
+          <!-- Individual Item Statuses -->
+          <div class="items-timeline">
+            <% order.items.forEach((item, index) => { %>
+              <div class="item-status mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span><%= item.productId.productName %></span>
+                  <span class="badge bg-<%= 
+                    item.status === 'Cancelled' ? 'danger' :
+                    item.status === 'Delivered' ? 'success' :
+                    'warning' %>">
+                    <%= item.status %>
+                  </span>
                 </div>
-              <% }); %>
-            </div>
-          <% } else { %>
-            <!-- Special cases: only show the special status -->
-            <div class="timeline">
-              <div class="timeline-item active">
-                <div class="timeline-icon">
-                  <i class="fa fa-info-circle"></i>
-                </div>
-                <div class="timeline-content">
-                  <h5><%= order.orderStatus %></h5>
-                  <% if (order.statusUpdates && order.statusUpdates[order.orderStatus]) { %>
-                    <p class="text-muted">
-                      <%= new Date(order.statusUpdates[order.orderStatus]).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
-                    </p>
-                  <% } %>
-                </div>
+                <% if (order.statusUpdates && order.statusUpdates[`item-${item._id}-Return Requested`]) { %>
+                  <!-- <small class="text-muted d-block">
+                    Return requested on: <%= new Date(order.statusUpdates[`item-${item._id}-Return Requested`])
+                      .toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      }) %>
+                  </small> -->
+                <% } %>
               </div>
-            </div>
-          <% } %>
+            <% }); %>
+          </div>
         </div>
       </div>
 
@@ -219,21 +207,31 @@
                           Cancel Item
                         </button>
                       <% } %>
-                      <% if (order.orderStatus === 'Delivered' && (!item.status || item.status === 'Pending')) { %>
+
+                      <% if (order.orderStatus === 'Delivered' && 
+                             item.status === 'Delivered' && 
+                             !['Returned', 'Return Requested', 'Return Declined'].includes(item.status)) { %>
                         <button class="btn btn-sm btn-warning"
                                 onclick="returnOrderItem('<%= order._id %>', '<%= item._id %>')">
-                          Return Item
+                          Return
                         </button>
                       <% } %>
-                      <% if (order.orderStatus === 'Delivered' && !item.reviewed) { %>
+
+                      <% if (order.orderStatus === 'Delivered' && !item.reviewed && item.status !== 'Return Requested' && item.status !== 'Returned') { %>
                         <a href="/review?orderId=<%= order._id %>&productId=<%= item.productId._id %>" 
                            class="btn btn-sm btn-primary">
-                            Write Review
+                          Write Review
                         </a>
                       <% } %>
+
                       <% if (item.status) { %>
                         <span class="badge bg-<%= 
-                          item.status === 'Cancelled' ? 'danger' : item.status === 'Return Requested' ? 'warning' : item.status === 'Returned' ? 'info' : 'success' %>">
+                          item.status === 'Cancelled' ? 'danger' : 
+                          item.status === 'Return Requested' ? 'warning' : 
+                          item.status === 'Returned' ? 'info' : 
+                          item.status === 'Return Declined' ? 'danger' :
+                          item.status === 'Delivered' ? 'success' :
+                          'primary' %>">
                           <%= item.status %>
                         </span>
                       <% } %>
@@ -421,12 +419,26 @@
             icon: data.success ? 'success' : 'error',
             title: data.success ? 'Success' : 'Error',
             text: data.message
-          }).then(() => location.reload());
+          }).then(() => {
+            if (data.success) {
+              window.location.reload();
+            }
+          });
         })
         .catch(error => {
           console.error(error);
           Swal.fire('Error', 'Failed to process return request', 'error');
         });
+      }
+    });
+  }
+
+  // In admin updateOrderStatus (when newStatus is 'Delivered')
+  if (newStatus === 'Delivered') {
+    order.items.forEach(item => {
+      // Update item status unless it is already final (Cancelled, etc.)
+      if (!['Cancelled', 'Returned', 'Return Requested', 'Return Declined'].includes(item.status)) {
+        item.status = 'Delivered';
       }
     });
   }

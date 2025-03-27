@@ -116,7 +116,6 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-   
     const validTransitions = {
       'Pending': ['Shipped'],
       'Shipped': ['Out for Delivery'],
@@ -126,7 +125,6 @@ const updateOrderStatus = async (req, res) => {
       'Returned': []
     };
 
-    
     if (!validTransitions[order.orderStatus]?.includes(newStatus)) {
       return res.status(400).json({
         success: false,
@@ -135,27 +133,40 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-  
+    // Update both global order status and individual item statuses
+    order.orderStatus = newStatus;
+    
+    // Update all items that aren't in a final state
+    order.items.forEach(item => {
+      // Don't update items that are already cancelled or returned
+      if (!['Cancelled', 'Returned', 'Return Requested', 'Return Declined'].includes(item.status)) {
+        item.status = newStatus;
+      }
+    });
+
+    // Handle special cases
     if (newStatus === 'Cancelled') {
-      // Restore product stock
+      // Restore product stock for non-cancelled items
       for (const item of order.items) {
-        const product = await Product.findById(item.productId);
-        if (product) {
-          product.quantity += item.quantity;
-          await product.save();
+        if (item.status !== 'Cancelled') {
+          const product = await Product.findById(item.productId);
+          if (product) {
+            product.quantity += item.quantity;
+            await product.save();
+          }
+          item.status = 'Cancelled';
         }
       }
 
-      
+      // Process refund if payment was completed
       if (order.paymentStatus === 'Completed') {
-        const user = await user.findById(order.user);
-        if (user) {
-          user.wallet = (user.wallet || 0) + order.totalAmount;
-          await user.save();
+        const customer = await User.findById(order.user);
+        if (customer) {
+          customer.wallet = (customer.wallet || 0) + order.totalAmount;
+          await customer.save();
 
-        
           await new WalletTransaction({
-            userId: user._id,
+            userId: customer._id,
             amount: order.totalAmount,
             type: 'Credit',
             description: `Refund for cancelled order ${order._id}`
@@ -164,9 +175,18 @@ const updateOrderStatus = async (req, res) => {
       }
     }
 
-    order.orderStatus = newStatus;
+    // Update status timestamps
     order.statusUpdates = order.statusUpdates || {};
-    order.statusUpdates[newStatus] = new Date();
+    const now = new Date();
+    order.statusUpdates[newStatus] = now;
+    
+    // Also update timestamps for individual items
+    order.items.forEach(item => {
+      if (item.status === newStatus) {
+        order.statusUpdates[`item-${item._id}-${newStatus}`] = now;
+      }
+    });
+
     await order.save();
 
     res.json({ 

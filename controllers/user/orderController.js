@@ -12,6 +12,42 @@ const instance = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET   
 });
 
+// Add this helper function at the top
+function calculateOrderStatus(items) {
+    const statusCounts = items.reduce((acc, item) => {
+        acc[item.status] = (acc[item.status] || 0) + 1;
+        return acc;
+    }, {});
+
+    const totalItems = items.length;
+
+    // If all items have the same status, use that status
+    if (Object.keys(statusCounts).length === 1) {
+        return items[0].status;
+    }
+
+    // For mixed statuses, use the most significant status
+    if (statusCounts['Delivered']) return 'Delivered';
+    if (statusCounts['Out for Delivery']) return 'Out for Delivery';
+    if (statusCounts['Shipped']) return 'Shipped';
+    if (statusCounts['Cancelled'] === totalItems) return 'Cancelled';
+    if (statusCounts['Return Requested']) return 'Return Requested';
+    if (statusCounts['Returned']) return 'Returned';
+    
+    // Default to 'Pending' if no other status applies
+    return 'Pending';
+}
+
+// Add this helper function near the top
+function calculateDisplayStatus(items) {
+    const statuses = items.map(item => item.status);
+    const uniqueStatuses = new Set(statuses);
+    if (uniqueStatuses.size === 1) {
+        return statuses[0];
+    }
+    return 'Mixed Status';
+}
+
 const viewOrderDetails = async (req, res) => {
   try {
     const orderId = req.params.id;
@@ -24,19 +60,15 @@ const viewOrderDetails = async (req, res) => {
     if (!order) {
       return res.redirect('/orders');
     }
-
-    // Check if order is delivered
+    order.statusUpdates = order.statusUpdates || {};
+   
     if (order.orderStatus === 'Delivered') {
-      // Get the items that are still eligible for return (no status or status is still pending)
+    
       const pendingItems = order.items.filter(item => !item.status || item.status === 'Pending');
 
-      // Global return will be available only if:
-      // • There is more than one product in the order
-      // • And ALL items are pending (meaning none have been returned already)
       order.showGlobalReturn = order.items.length > 1 && pendingItems.length === order.items.length;
 
-      // Individual return buttons show if there is at least one pending item
-      // but if global return is available, we don't show individual returns.
+     
       order.showIndividualReturn = !order.showGlobalReturn && pendingItems.length > 0;
     } else {
       order.showGlobalReturn = false;
@@ -50,6 +82,8 @@ const viewOrderDetails = async (req, res) => {
         addr._id.toString() === order.address.toString()
       );
     }
+
+    order.computedDisplayStatus = calculateDisplayStatus(order.items);
 
     res.render('orderDetails', {
       user: req.session.user,
@@ -361,49 +395,63 @@ const cancelOrderItem = async (req, res) => {
         const { orderId, itemId, reason } = req.body;
         const userId = req.session.user;
         const order = await Order.findOne({ _id: orderId, user: userId });
+        
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
-        // Find the order item
+
         const item = order.items.find(i => i._id.toString() === itemId);
         if (!item) {
             return res.status(404).json({ success: false, message: 'Order item not found' });
         }
-        if (item.status && item.status !== 'Pending') {
-            return res.status(400).json({ success: false, message: 'This item cannot be cancelled' });
-        }
-        // Mark item as cancelled
+
+        // Update individual item status
         item.status = 'Cancelled';
         item.cancelReason = reason || '';
-        
-        // Process refund for the cancelled item if needed.
-        // Calculate refund as price * quantity.
-        if ((order.paymentMethod === 'Online' || order.paymentMethod === 'Wallet') && order.paymentStatus === 'Completed') {
-            const refundAmount = Number(item.price * item.quantity) || 0;
-            const currentUser = await User.findById(userId);
-            const product = await Product.findById(item.productId);
-    const productName = product ? product.productName : 'Unknown Product';
 
-            if (currentUser) {
-                const currentWallet = Number(currentUser.wallet) || 0;
-                currentUser.wallet = currentWallet + refundAmount;
-                await currentUser.save();
+        // Calculate the DB status (must be a valid enum value)
+        const newOrderStatus = calculateOrderStatus(order.items);
+        order.orderStatus = newOrderStatus;
+
+        // Store additional status info for display purposes
+        if (!order.statusUpdates) {
+            order.statusUpdates = {};
+        }
+        const now = new Date();
+        order.statusUpdates[`item-${itemId}-cancelled`] = now;
+        
+        // Count cancelled items for display
+        const cancelledCount = order.items.filter(item => item.status === 'Cancelled').length;
+        const totalItems = order.items.length;
+        const displayStatus = cancelledCount === totalItems ? 'Cancelled' : 
+                            `${cancelledCount}/${totalItems} Items Cancelled`;
+
+        // Process refund if needed
+        if ((order.paymentMethod === 'Online' || order.paymentMethod === 'Wallet') 
+            && order.paymentStatus === 'Completed') {
+            const refundAmount = item.price * item.quantity;
+            const user = await User.findById(userId);
+            if (user) {
+                user.wallet = (Number(user.wallet) || 0) + refundAmount;
+                await user.save();
+                
                 await new WalletTransaction({
-                    userId: currentUser._id,
+                    userId: userId,
                     amount: refundAmount,
                     type: 'Credit',
-                    description: `Refund for cancelled product ${productName} in order id: ${orderId}`
+                    description: `Refund for cancelled item in order ${orderId}`
                 }).save();
             }
         }
-        // Restore the canceled item stock
-        const product = await Product.findById(item.productId);
-        if (product) {
-            product.quantity += item.quantity;
-            await product.save();
-        }
+
         await order.save();
-        return res.json({ success: true, message: 'Order item successfully cancelled' });
+        
+        return res.json({ 
+            success: true, 
+            message: 'Order item successfully cancelled',
+            orderStatus: newOrderStatus,
+            displayStatus: displayStatus
+        });
     } catch (error) {
         console.error('Error cancelling order item:', error);
         return res.status(500).json({ success: false, message: 'Error cancelling order item' });
@@ -418,16 +466,13 @@ const returnOrderItem = async (req, res) => {
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
-        // Allow individual return only if the overall order is Delivered and item is pending action
-        if (order.orderStatus !== 'Delivered') {
-            return res.status(400).json({ success: false, message: 'Only delivered orders can be returned' });
-        }
         const item = order.items.find(i => i._id.toString() === itemId);
         if (!item) {
             return res.status(404).json({ success: false, message: 'Order item not found' });
         }
-        if (item.status && item.status !== 'Pending') {
-            return res.status(400).json({ success: false, message: 'This item cannot be returned' });
+        // Check the individual item status instead of the global order status
+        if (item.status !== 'Delivered') {
+            return res.status(400).json({ success: false, message: 'Only delivered items can be returned' });
         }
         // Mark item as return requested and save the reason
         item.status = 'Return Requested';
@@ -489,7 +534,7 @@ module.exports = {
     viewOrderDetails,
     cancelOrder,
     submitReview,
-    loadReviewPage,     // Add this line
+    loadReviewPage,   
     createOnlineOrder,
     onlinePaymentSuccess,
     walletPaymentOrder,
