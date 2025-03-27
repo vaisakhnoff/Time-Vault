@@ -440,14 +440,59 @@ const returnOrderItem = async (req, res) => {
     }
 };
 
+// Add this function to your existing orderController.js
+const loadReviewPage = async (req, res) => {
+    try {
+        const { orderId, productId } = req.query;
+        const userId = req.session.user;
+
+        // Fetch order details
+        const order = await Order.findOne({
+            _id: orderId,
+            user: userId
+        });
+
+        if (!order) {
+            return res.redirect('/orders');
+        }
+
+        // Fetch product details
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.redirect(`/order/${orderId}`);
+        }
+
+        // Verify if the product is in the order and eligible for review
+        const orderItem = order.items.find(item => 
+            item.productId.toString() === productId && 
+            !item.reviewed && 
+            order.orderStatus === 'Delivered'
+        );
+
+        if (!orderItem) {
+            return res.redirect(`/order/${orderId}`);
+        }
+
+        res.render('writeReview', {
+            user: req.session.user,
+            order: order,
+            product: product
+        });
+
+    } catch (error) {
+        console.error('Error loading review page:', error);
+        res.redirect('/pageNotFound');
+    }
+};
+
 module.exports = {
     viewOrderDetails,
     cancelOrder,
     submitReview,
-    // requestReturnOrder,
+    loadReviewPage,     // Add this line
     createOnlineOrder,
     onlinePaymentSuccess,
     walletPaymentOrder,
-    cancelOrderItem,      // new endpoint for individual cancellation
-    returnOrderItem       // new endpoint for individual return
+    cancelOrderItem,
+    returnOrderItem
 };

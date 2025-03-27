@@ -15,7 +15,7 @@ function getDateRange(filter) {
     
     switch (filter) {
         case 'daily':
-            // Set start date to beginning of today
+            
             startDate.setHours(0, 0, 0, 0);
             // Set end date to end of today
             endDate.setHours(23, 59, 59, 999);
@@ -37,9 +37,16 @@ function getDateRange(filter) {
 const getDashboardData = async (req, res) => {
     try {
         const filter = req.query.filter || 'weekly';
-        const { startDate, endDate } = getDateRange(filter);
+        let { startDate, endDate } = getDateRange(filter);
 
-        // Aggregate orders and revenue
+        if(filter === 'custom' && req.query.from && req.query.to) {
+            startDate = new Date(req.query.from);
+            endDate = new Date(req.query.to);
+          
+            endDate.setHours(23, 59, 59, 999);
+        }
+
+       
         const stats = await Order.aggregate([
             { 
                 $match: { 
@@ -56,14 +63,14 @@ const getDashboardData = async (req, res) => {
             }
         ]);
 
-        // Get counts
+  
         const [totalUsers, totalProducts, categories] = await Promise.all([
             User.countDocuments(),
             Product.countDocuments(),
             Category.find({ isListed: true })
         ]);
 
-        // Modify the time series aggregation for daily view
+        
         const timeSeriesData = await Order.aggregate([
             { 
                 $match: { 
@@ -73,19 +80,11 @@ const getDashboardData = async (req, res) => {
             },
             {
                 $group: {
-                    _id: filter === 'daily' 
-                        ? { 
-                            $dateToString: { 
-                                format: "%Y-%m-%d %H:00:00", 
-                                date: "$createdAt" 
-                            }
-                        }
-                        : { 
-                            $dateToString: { 
-                                format: "%Y-%m-%d", 
-                                date: "$createdAt" 
-                            }
-                        },
+                    _id: (filter === 'daily')
+                        ? { $dateToString: { format: "%Y-%m-%d %H:00:00", date: "$createdAt" } }
+                        : ((filter === 'monthly' || filter === 'yearly')
+                            ? { $dateToString: { format: "%Y-%m", date: "$createdAt" } }
+                            : { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }),
                     revenue: { $sum: "$totalAmount" },
                     orders: { $sum: 1 }
                 }
@@ -93,7 +92,7 @@ const getDashboardData = async (req, res) => {
             { $sort: { "_id": 1 } }
         ]);
 
-        // Category performance
+        
         const categoryPerformance = await Order.aggregate([
             { 
                 $match: { 
@@ -140,7 +139,7 @@ const getDashboardData = async (req, res) => {
             }
         ]);
 
-        // Product performance by brand (since your schema doesn't have brand, we'll group by product)
+       
         const brandPerformance = await Order.aggregate([
             { 
                 $match: { 
@@ -159,9 +158,18 @@ const getDashboardData = async (req, res) => {
             },
             { $unwind: "$product" },
             {
+                $lookup: {
+                    from: "brands",
+                    localField: "product.brand",
+                    foreignField: "_id",
+                    as: "brandDetails"
+                }
+            },
+            { $unwind: "$brandDetails" },
+            {
                 $group: {
-                    _id: "$product._id",
-                    productName: { $first: "$product.productName" },
+                    _id: "$brandDetails._id",
+                    brand: { $first: "$brandDetails.brandName" },
                     totalSales: { 
                         $sum: { 
                             $multiply: ["$items.price", "$items.quantity"] 
@@ -173,7 +181,7 @@ const getDashboardData = async (req, res) => {
             { $limit: 5 },
             {
                 $project: {
-                    brand: "$productName", // Using product name instead of brand
+                    brand: 1,
                     totalSales: 1,
                     _id: 0
                 }
@@ -201,7 +209,7 @@ const getDashboardData = async (req, res) => {
     }
 };
 
-// Best Selling Data endpoint
+
 const getBestSellingData = async (req, res) => {
     try {
         const filter = req.query.filter || 'weekly';
@@ -251,7 +259,7 @@ const getBestSellingData = async (req, res) => {
             { $limit: 5 }
         ]);
 
-        // Best selling categories
+      
         const bestSellingCategories = await Order.aggregate([
             { 
                 $match: { 
@@ -294,13 +302,53 @@ const getBestSellingData = async (req, res) => {
             { $limit: 5 }
         ]);
 
+        const bestSellingBrands = await Order.aggregate([
+            { 
+                $match: { 
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                }
+            },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.productId",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $lookup: {
+                    from: "brands",
+                    localField: "product.brand",
+                    foreignField: "_id",
+                    as: "brandDetails"
+                }
+            },
+            { $unwind: "$brandDetails" },
+            {
+                $group: {
+                    _id: "$brandDetails._id",
+                    brand: { $first: "$brandDetails.brandName" },
+                    totalSales: { $sum: "$items.quantity" },
+                    revenue: { 
+                        $sum: { 
+                            $multiply: ["$items.price", "$items.quantity"] 
+                        }
+                    }
+                }
+            },
+            { $sort: { totalSales: -1 } },
+            { $limit: 5 }
+        ]);
+
+        
         res.json({
             bestSellingProducts,
             bestSellingCategories,
-            bestSellingBrands: bestSellingProducts.map(product => ({
-                brand: product.productName,
-                totalSales: product.totalSales
-            }))
+            bestSellingBrands
         });
 
     } catch (error) {
@@ -484,13 +532,13 @@ const generateSalesReport = async (req, res) => {
             { $sort: { "_id.date": -1 } }
         ]);
 
-        // Modify the category performance aggregation
+        
         const categoryPerformance = await Order.aggregate([
             { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
             { $unwind: "$items" },
             {
                 $lookup: {
-                    from: "categories", // Add lookup to get category name
+                    from: "categories", 
                     localField: "items.category",
                     foreignField: "_id",
                     as: "categoryDetails"
@@ -511,7 +559,7 @@ const generateSalesReport = async (req, res) => {
             }}
         ]);
 
-        // Modify time series aggregation to include proper date formatting
+       
         const timeSeriesAgg = await Order.aggregate([
             { $match: { 
                 createdAt: { $gte: startDate, $lte: endDate },
@@ -637,7 +685,6 @@ const downloadSalesReport = async (req, res) => {
             // Generate Excel file
             const workbook = XLSX.utils.book_new();
             
-            // Convert data to worksheet format
             const worksheetData = salesReport.map(day => ({
                 Date: day._id.date,
                 'Order Count': day.orderCount,
@@ -700,8 +747,8 @@ const downloadSalesReport = async (req, res) => {
 
 module.exports = {
     getDashboardStats,
-    getDashboardData,    // Add new function
-    getBestSellingData,  // Add new function
+    getDashboardData,   
+    getBestSellingData, 
     generateSalesReport,
     downloadSalesReport
 };

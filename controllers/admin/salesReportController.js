@@ -6,22 +6,40 @@ const rupee = "\u20B9";
 
 const getSalesReport = async (req, res) => {
     try {
-        // Use orderStatus instead of items.status
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10; // Items per page
+        const skip = (page - 1) * limit;
+
+       
+        const totalOrders = await Order.countDocuments({
+            orderStatus: 'Delivered'
+        });
+
         const orders = await Order.find({
             orderStatus: 'Delivered'
         })
         .populate('user', 'firstName lastName email')
         .populate('items.productId')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
         const salesData = calculateSalesData(orders);
+        const totalPages = Math.ceil(totalOrders / limit);
 
         res.render('sales-report', { 
             orders,
             salesData,
             startDate: '',
             endDate: '',
-            filterType: 'all'
+            filterType: 'all',
+            currentPage: page,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPreviousPage: page > 1,
+            nextPage: page + 1,
+            previousPage: page - 1,
+            lastPage: totalPages
         });
     } catch (error) {
         console.error('Error fetching sales report:', error);
@@ -32,18 +50,29 @@ const getSalesReport = async (req, res) => {
 const filterSalesReport = async (req, res) => {
     try {
         const { startDate, endDate, filterType } = req.body;
+        const page = parseInt(req.body.page) || 1;
+        const limit = 10;
+        const skip = (page - 1) * limit;
         const dateFilter = getDateFilter(filterType, startDate, endDate);
 
-        // Use orderStatus here instead of 'items.status'
+        
+        const totalOrders = await Order.countDocuments({
+            ...dateFilter,
+            orderStatus: 'Delivered'
+        });
+
         const orders = await Order.find({
             ...dateFilter,
             orderStatus: 'Delivered'
         })
         .populate('user', 'firstName lastName email')
         .populate('items.productId')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
         const salesData = calculateSalesData(orders);
+        const totalPages = Math.ceil(totalOrders / limit);
 
         res.json({
             success: true,
@@ -51,7 +80,16 @@ const filterSalesReport = async (req, res) => {
             salesData,
             startDate,
             endDate,
-            filterType
+            filterType,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1,
+                nextPage: page + 1,
+                previousPage: page - 1,
+                lastPage: totalPages
+            }
         });
     } catch (error) {
         console.error('Error filtering sales report:', error);
@@ -86,7 +124,7 @@ const downloadSalesReport = async (req, res) => {
     }
 };
 
-// Helper functions
+
 function calculateSalesData(orders) {
     let totalOrders = orders.length;
     let totalAmount = 0;
@@ -97,10 +135,8 @@ function calculateSalesData(orders) {
         const originalAmount = order.items.reduce((sum, item) => 
             sum + (item.price * item.quantity), 0);
         
-        // Final amount is stored in order.totalAmount
         totalAmount += order.totalAmount;
         
-        // Coupon discount is the difference between original and final amount
         const orderCouponDiscount = originalAmount - order.totalAmount;
         totalCouponDiscount += orderCouponDiscount;
     });
@@ -203,11 +239,11 @@ async function generatePDFReport(orders, res) {
     res.setHeader('Content-Disposition', 'attachment; filename=sales-report.pdf');
     doc.pipe(res);
 
-    // Add report title
+  
     doc.fontSize(20).text('Sales Report', { align: 'center' });
     doc.moveDown();
 
-    // Add summary with Rs. instead of rupee symbol
+   
     const salesData = calculateSalesData(orders);
     doc.fontSize(12)
         .text(`Total Orders: ${salesData.totalOrders}`)
@@ -215,7 +251,6 @@ async function generatePDFReport(orders, res) {
         .text(`Total Coupon Savings: Rs. ${salesData.totalCouponDiscount.toFixed(2)}`);
     doc.moveDown();
 
-    // Add orders table with Rs. instead of rupee symbol
     const table = {
         headers: ['Order ID', 'Date', 'Customer', 'Amount (Rs.)', 'Coupon (Rs.)', 'Final (Rs.)'],
         rows: orders.map(order => {

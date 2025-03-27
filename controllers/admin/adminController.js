@@ -24,21 +24,32 @@ const login = async (req, res) => {
         const admin = await User.findOne({ email, isAdmin: true });
 
         if (!admin) {
-            return res.redirect('/admin/login');
+            return res.json({
+                success: false,
+                message: 'Invalid email address'
+            });
         }
 
         const passwordMatch = await bcrypt.compare(password, admin.password);
         
         if (passwordMatch) {
-            req.session.admin = admin._id; 
-            // return res.render('dashboard');
-            return res.redirect('/admin/dashboard');
+            req.session.admin = admin._id;
+            return res.json({
+                success: true,
+                redirect: '/admin/dashboard'
+            });
         } else {
-            return res.redirect('/admin/login');
+            return res.json({
+                success: false,
+                message: 'Invalid password'
+            });
         }
     } catch (error) {
         console.log("Login error", error);
-        return res.redirect('/admin/pageError');
+        return res.json({
+            success: false,
+            message: 'An error occurred during login'
+        });
     }
 }
 

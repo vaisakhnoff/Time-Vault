@@ -752,6 +752,7 @@
         });
 
         // Add to cart and wishlist functions
+        // Update the addToCart function
         function addToCart(productId) {
             fetch('/addToCart', {
                 method: 'POST',
@@ -760,16 +761,50 @@
                 },
                 body: JSON.stringify({ id: productId })
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(async response => {
+                const data = await response.json();
+                
+                // Handle unauthorized access
+                if (response.status === 401) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Authentication Required',
+                        text: 'Please login to add items to cart',
+                        showCancelButton: true,
+                        confirmButtonText: 'Login',
+                        cancelButtonText: 'Cancel'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '/login';
+                        }
+                    });
+                    return;
+                }
+
+                // Handle other responses
                 if (data.success) {
-                    Swal.fire("Success", data.message, "success");
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: data.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
                 } else {
-                    Swal.fire("Alert", data.message, "warning");
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Alert',
+                        text: data.message
+                    });
                 }
             })
             .catch(error => {
-                Swal.fire("Error", "Something went wrong", "error");
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Something went wrong while adding to cart'
+                });
             });
         }
 

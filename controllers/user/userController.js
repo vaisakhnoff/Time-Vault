@@ -9,6 +9,7 @@ const Category = require('../../models/categorySchema');
 const Brand = require('../../models/brandSchema');
 const Product = require('../../models/productSchema');
 const WalletTransaction = require('../../models/walletSchema');
+const user = require('../../models/userschema');
 
 
 
@@ -20,7 +21,7 @@ const loadHomepage = async (req, res) => {
             isBlocked: false,
             category: { $in: categories.map(category => category._id) },
             quantity: { $gt: 0 }
-        }).populate('category').lean(); // Add .lean() for better performance
+        }).populate('category').lean(); 
 
     
         productData = productData.map(product => ({
@@ -394,6 +395,10 @@ res.redirect('/')
 
 const loadShopPage = async (req, res) => {
     try {
+
+        const userId = req.session.user;
+        const userData = await User.findOne({ _id: userId });
+
         const page = parseInt(req.query.page) || 1;
         const limit = 9;
         const skip = (page - 1) * limit;
@@ -500,7 +505,8 @@ const loadShopPage = async (req, res) => {
             searchQuery: req.query.search || '',
             sort: req.query.sort || '',
             minPrice: req.query.minPrice || '',
-            maxPrice: req.query.maxPrice || ''
+            maxPrice: req.query.maxPrice || '',
+            user    : userData
         });
 
     } catch (error) {
@@ -599,6 +605,61 @@ const sendForgotOtp = async (req, res) => {
   
   
   
+// Add this new function before the module.exports
+const loadContactPage = async (req, res) => {
+    try {
+        const userId = req.session.user;
+        let userData;
+        
+        if (userId) {
+            userData = await User.findById(userId);
+        }
+        
+        res.render('contact', {
+            user: userData,
+            message: req.query.message || null,
+            status: req.query.status || null
+        });
+    } catch (error) {
+        console.error("Error loading contact page:", error);
+        res.redirect('/pageNotFound');
+    }
+};
+
+// Add this to handle contact form submissions
+const submitContactForm = async (req, res) => {
+    try {
+        const { name, email, subject, message } = req.body;
+        
+        // Validate input
+        if (!name || !email || !subject || !message) {
+            return res.redirect('/contact?message=All fields are required&status=error');
+        }
+
+
+        // Send confirmation email
+        const emailContent = `
+            Thank you for contacting us!
+            
+            We have received your message:
+            
+            Name: ${name}
+            Email: ${email}
+            Subject: ${subject}
+            Message: ${message}
+            
+            We will get back to you soon.
+        `;
+
+        await sendverificationEmail(email, null, 'Contact Form Received', emailContent);
+
+        res.redirect('/contact?message=Message sent successfully&status=success');
+    } catch (error) {
+        console.error("Error submitting contact form:", error);
+        res.redirect('/contact?message=Error sending message&status=error');
+    }
+};
+
 
 module.exports ={
     loadHomepage,
@@ -617,6 +678,8 @@ module.exports ={
     sendForgotOtp,
     loadResetPassword,
     resetPassword,
-    sendverificationEmail
+    sendverificationEmail,
+    loadContactPage,
+    submitContactForm
    
 }

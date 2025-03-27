@@ -6,7 +6,7 @@ const Product = require('../../models/productSchema');
 const getBrands = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const perPage = 10; // Adjust this number as needed
+        const perPage = 10; 
         const totalBrands = await Brand.countDocuments();
         const totalPages = Math.ceil(totalBrands / perPage);
         
@@ -127,26 +127,26 @@ const addBrandOffer = async (req, res) => {
             return res.json({ success: false, message: 'Brand not found' });
         }
         
-        // Update brand offer
+       
         brand.brandOffer = parseInt(offerPercentage);
         await brand.save();
         
-        // Update salePrice for all products associated with this brand
+       
         const affectedProducts = await Product.find({ brand: brandId })
             .populate('category')
             .populate('brand');
         
         for (const product of affectedProducts) {
-            // Calculate discount factors
+          
             const productOfferDiscount = product.productOffer ? (1 - product.productOffer / 100) : 1;
             const categoryOfferDiscount = product.category?.categoryOffer ? (1 - product.category.categoryOffer / 100) : 1;
-            // Use the new brand offer from the brand document
+       
             const brandOfferDiscount = brand.brandOffer ? (1 - brand.brandOffer / 100) : 1;
             
-            // Choose the best discount (lowest factor)
+           
             const finalDiscountFactor = Math.min(productOfferDiscount, categoryOfferDiscount, brandOfferDiscount);
             
-            // Update salePrice (always calculate from regularPrice)
+           
             product.salePrice = product.regularPrice * finalDiscountFactor;
             await product.save();
         }
@@ -174,11 +174,11 @@ const removeBrandOffer = async (req, res) => {
             return res.json({ success: false, message: 'Brand not found' });
         }
         
-        // Remove the brand offer
+        
         brand.brandOffer = 0;
         await brand.save();
         
-        // Update salePrice for all products associated with this brand
+       
         const affectedProducts = await Product.find({ brand: brandId })
             .populate('category')
             .populate('brand');
@@ -186,7 +186,7 @@ const removeBrandOffer = async (req, res) => {
         for (const product of affectedProducts) {
             const productOfferDiscount = product.productOffer ? (1 - product.productOffer / 100) : 1;
             const categoryOfferDiscount = product.category?.categoryOffer ? (1 - product.category.categoryOffer / 100) : 1;
-            // Now brandOfferDiscount is 1 since no offer
+           
             const brandOfferDiscount = 1;
             
             const finalDiscountFactor = Math.min(productOfferDiscount, categoryOfferDiscount, brandOfferDiscount);

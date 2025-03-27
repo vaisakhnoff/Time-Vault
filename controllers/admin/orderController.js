@@ -22,7 +22,6 @@ const listOrders = async (req, res) => {
       query.orderStatus = filterStatus;
     }
 
-    // Get orders and transform them
     let orders = await Order.find(query)
       .populate('user')
       .sort({ createdAt: -1 })
@@ -30,7 +29,7 @@ const listOrders = async (req, res) => {
       .limit(limit)
       .lean();
 
-    // Add isEditable field to each order after getting lean objects
+    
     orders = orders.map(order => ({
       ...order,
       isEditable: !['Cancelled', 'Returned'].includes(order.orderStatus)
@@ -117,7 +116,7 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Define valid status transitions
+   
     const validTransitions = {
       'Pending': ['Shipped'],
       'Shipped': ['Out for Delivery'],
@@ -127,7 +126,7 @@ const updateOrderStatus = async (req, res) => {
       'Returned': []
     };
 
-    // Check if the status transition is valid
+    
     if (!validTransitions[order.orderStatus]?.includes(newStatus)) {
       return res.status(400).json({
         success: false,
@@ -136,7 +135,7 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Handle order cancellation logic
+  
     if (newStatus === 'Cancelled') {
       // Restore product stock
       for (const item of order.items) {
@@ -147,14 +146,14 @@ const updateOrderStatus = async (req, res) => {
         }
       }
 
-      // Handle refund if payment was made
+      
       if (order.paymentStatus === 'Completed') {
         const user = await user.findById(order.user);
         if (user) {
           user.wallet = (user.wallet || 0) + order.totalAmount;
           await user.save();
 
-          // Create wallet transaction
+        
           await new WalletTransaction({
             userId: user._id,
             amount: order.totalAmount,
@@ -213,7 +212,7 @@ const listReturnRequests = async (req, res) => {
           items: order.items
         });
       } else {
-        // Only process individual returns if a global return was not set
+        
         order.items.forEach(item => {
           if (item.status === 'Return Requested') {
             returnRequests.push({
@@ -288,19 +287,14 @@ const processReturnRequest = async (req, res) => {
       item.status = 'Return Declined';
     }
 
-    // Only update the overall order status if no items are pending a return decision.
-    // You can choose to leave the overall order status unchanged if some items are still pending,
-    // or update it to "Partial Return" if desired.
+   
     if (!order.items.some(i => i.status === 'Return Requested')) {
-      // For example, if at least one item was approved for return,
-      // you might mark the order as "Partial Return" if not all items are returned.
+      
       const allApprovedOrProcessed = order.items.every(i => 
         i.status === 'Returned' || i.status === 'Cancelled' || i.status === 'Return Declined'
       );
       if (allApprovedOrProcessed) {
-        // If every item was approved (or processed) then update overall status.
-        // Business logic here: if all items are returned, mark as Returned;
-        // otherwise, if some items are still delivered, you can leave it as Delivered or mark as Partial Return.
+      
         const allReturned = order.items.every(i => i.status === 'Returned' || i.status === 'Cancelled');
         order.orderStatus = allReturned ? 'Returned' : 'Delivered';
       }

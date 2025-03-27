@@ -54,9 +54,9 @@
 				<div class="col-first">
 					<h1>Product Details Page</h1>
 					<nav class="d-flex align-items-center">
-						<a href="index.html">Home<span class="lnr lnr-arrow-right"></span></a>
-						<a href="#">Shop<span class="lnr lnr-arrow-right"></span></a>
-						<a href="single-product.html">product-details</a>
+                        <a href="/">Home<span class="lnr lnr-arrow-right"></span></a>
+						<a href="/shopPage">Shop<span class="lnr lnr-arrow-right"></span></a>
+						<a href="#">product-details</a>
 					</nav>
 				</div>
 			</div>
@@ -181,6 +181,90 @@
                             <i class="lnr lnr-heart"></i>
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add this before the related products section -->
+
+<section class="product-reviews-area section_gap">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="review-heading">
+                    <h2>Customer Reviews</h2>
+                    <div class="rating-summary">
+                        <div class="rating-stats">
+                            <h1><%= averageRating %> <small>/ 5</small></h1>
+                            <div class="stars">
+                                <% for(let i = 1; i <= 5; i++) { %>
+                                    <i class="fa fa-star<%= i <= averageRating ? '' : '-o' %>"></i>
+                                <% } %>
+                            </div>
+                            <p>Based on <%= totalReviews %> reviews</p>
+                        </div>
+                        <div class="rating-bars">
+                            <% for(let i = 5; i >= 1; i--) { %>
+                                <div class="rating-bar-row">
+                                    <span class="star-count"><%= i %> stars</span>
+                                    <div class="progress">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: <%= (ratingCounts[i] / totalReviews * 100) || 0 %>%">
+                                        </div>
+                                    </div>
+                                    <span class="count"><%= ratingCounts[i] %></span>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reviews List -->
+                <div class="reviews-list mt-4">
+                    <% if (product.reviews && product.reviews.length > 0) { %>
+                        <% product.reviews.forEach(review => { %>
+                            <div class="review-item mb-4">
+                                <div class="review-header">
+                                    <div class="reviewer-info">
+                                        <h5><%= review.userId.name %></h5>
+                                        <div class="review-rating">
+                                            <% for(let i = 1; i <= 5; i++) { %>
+                                                <i class="fa fa-star<%= i <= review.rating ? '' : '-o' %>"></i>
+                                            <% } %>
+                                        </div>
+                                        <small class="text-muted">
+                                            <%= new Date(review.createdAt).toLocaleDateString('en-US', {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            }) %>
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="review-content mt-2">
+                                    <h6 class="review-title"><%= review.title %></h6>
+                                    <p class="review-text"><%= review.review %></p>
+                                    <% if (review.images && review.images.length > 0) { %>
+                                        <div class="review-images mt-3">
+                                            <% review.images.forEach(image => { %>
+                                                <img src="/uploads/review-images/<%= image %>" 
+                                                     alt="Review Image" 
+                                                     class="review-image"
+                                                     onclick="showFullImage(this.src)">
+                                            <% }); %>
+                                        </div>
+                                    <% } %>
+                                </div>
+                            </div>
+                        <% }); %>
+                    <% } else { %>
+                        <div class="no-reviews text-center py-5">
+                            <h4>No reviews yet</h4>
+                            <p>Be the first to review this product</p>
+                        </div>
+                    <% } %>
                 </div>
             </div>
         </div>
@@ -367,6 +451,85 @@ function updateQuantity(action) {
             width: 20px;
             height: 20px;
         }
+
+        .review-heading {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .rating-summary {
+            display: flex;
+            gap: 50px;
+            margin-top: 20px;
+        }
+
+        .rating-stats {
+            text-align: center;
+        }
+
+        .rating-bars {
+            flex-grow: 1;
+        }
+
+        .rating-bar-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .star-count {
+            width: 60px;
+        }
+
+        .progress {
+            flex-grow: 1;
+            height: 8px;
+            margin: 0 10px;
+        }
+
+        .progress-bar {
+            background-color: #ffd700;
+        }
+
+        .count {
+            width: 30px;
+            text-align: right;
+        }
+
+        .review-item {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+
+        .reviewer-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .review-rating {
+            color: #ffd700;
+        }
+
+        .review-images {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .review-image {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .stars {
+            color: #ffd700;
+            font-size: 20px;
+        }
     </style>
 
     <script>
@@ -388,6 +551,17 @@ function updateQuantity(action) {
             $('.img-thumbnail').eq(e.to).css('opacity', '1');
         });
     });
+
+    function showFullImage(src) {
+        Swal.fire({
+            imageUrl: src,
+            imageAlt: 'Review Image',
+            width: '80%',
+            padding: '3em',
+            showConfirmButton: false,
+            backdrop: `rgba(0,0,0,0.9)`
+        });
+    }
     </script>
 	
 		

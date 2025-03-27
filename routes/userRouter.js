@@ -27,6 +27,8 @@ router.post('/sendForgotOtp', userController.sendForgotOtp);
 router.get('/resetPassword', userController.loadResetPassword)
 router.post('/resetPassword', userController.resetPassword)
 
+router.get('/contact', userController.loadContactPage);
+router.post('/contact/submit', userController.submitContactForm);
 
 router.get('/productDetails',productController.productDetails);
 router.get('/shopPage',userController.loadShopPage);
@@ -56,6 +58,8 @@ router.get('/orders',auth.checkSession,profileController.userOrders);
 router.get('/order/:id', auth.checkSession, orderController.viewOrderDetails);
 router.post('/cancelOrder', auth.checkSession, orderController.cancelOrder);
 router.post('/submitReview', auth.checkSession, orderController.submitReview);
+router.get('/review', orderController.loadReviewPage);
+router.post('/submitReview', orderController.submitReview);
 // router.post('/returnOrder', auth.checkSession, orderController.requestReturnOrder);
 router.post('/walletPaymentOrder', auth.checkSession, orderController.walletPaymentOrder);
 router.post('/order/cancelItem', auth.checkSession, orderController.cancelOrderItem);
@@ -75,7 +79,7 @@ router.get('/orderSuccess',auth.checkSession,cartController.orderSuccess);
 
 router.get('/wishlist',auth.checkSession,wishlistController.wishlist);
 router.post('/addWishlist',wishlistController.addWishlist)
-// router.post('/removeFromWishlist',wishlistController.removeFromWishlist)
+router.post('/removeFromWishlist',wishlistController.removeFromWishlist)
 
 router.get('/wallet',auth.checkSession,walletController.wallet);
 router.post('/wallet/createOrder', walletController.createOrder);

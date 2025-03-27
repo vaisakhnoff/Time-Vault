@@ -129,6 +129,47 @@
                 </tbody>
             </table>
         </div>
+        <!-- Add this after the table -->
+        <div class="card-footer">
+            <nav aria-label="Sales report pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    <!-- First Page -->
+                    <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                        <a class="page-link" href="?page=1" <%= currentPage === 1 ? 'tabindex="-1"' : '' %>>
+                            First
+                        </a>
+                    </li>
+
+                    <!-- Previous Page -->
+                    <li class="page-item <%= !hasPreviousPage ? 'disabled' : '' %>">
+                        <a class="page-link" href="?page=<%= previousPage %>" <%= !hasPreviousPage ? 'tabindex="-1"' : '' %>>
+                            Previous
+                        </a>
+                    </li>
+
+                    <!-- Page Numbers -->
+                    <% for(let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) { %>
+                        <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                            <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                        </li>
+                    <% } %>
+
+                    <!-- Next Page -->
+                    <li class="page-item <%= !hasNextPage ? 'disabled' : '' %>">
+                        <a class="page-link" href="?page=<%= nextPage %>" <%= !hasNextPage ? 'tabindex="-1"' : '' %>>
+                            Next
+                        </a>
+                    </li>
+
+                    <!-- Last Page -->
+                    <li class="page-item <%= currentPage === lastPage ? 'disabled' : '' %>">
+                        <a class="page-link" href="?page=<%= lastPage %>" <%= currentPage === lastPage ? 'tabindex="-1"' : '' %>>
+                            Last
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
     </div>
 </div>
 
@@ -142,6 +183,7 @@ async function applyFilter() {
     const filterType = document.getElementById('filterType').value;
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
+    const page = new URLSearchParams(window.location.search).get('page') || 1;
 
     try {
         const response = await fetch('/admin/sales-report/filter', {
@@ -149,18 +191,19 @@ async function applyFilter() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ filterType, startDate, endDate })
+            body: JSON.stringify({ filterType, startDate, endDate, page })
         });
 
         const data = await response.json();
         if (data.success) {
             updateSalesReport(data);
+            updatePagination(data.pagination);
         } else {
-            alert('Error applying filter');
+            Swal.fire('Error', 'Error applying filter', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Error applying filter');
+        Swal.fire('Error', 'Error applying filter', 'error');
     }
 }
 
@@ -188,6 +231,40 @@ function updateSalesReport(data) {
             </tr>
         `;
     }).join('');
+}
+
+function updatePagination(pagination) {
+    const paginationHTML = `
+        <ul class="pagination justify-content-center mb-0">
+            <li class="page-item ${pagination.currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="?page=1" ${pagination.currentPage === 1 ? 'tabindex="-1"' : ''}>First</a>
+            </li>
+            <li class="page-item ${!pagination.hasPreviousPage ? 'disabled' : ''}">
+                <a class="page-link" href="?page=${pagination.previousPage}" ${!pagination.hasPreviousPage ? 'tabindex="-1"' : ''}>Previous</a>
+            </li>
+            ${generatePageNumbers(pagination)}
+            <li class="page-item ${!pagination.hasNextPage ? 'disabled' : ''}">
+                <a class="page-link" href="?page=${pagination.nextPage}" ${!pagination.hasNextPage ? 'tabindex="-1"' : ''}>Next</a>
+            </li>
+            <li class="page-item ${pagination.currentPage === pagination.lastPage ? 'disabled' : ''}">
+                <a class="page-link" href="?page=${pagination.lastPage}" ${pagination.currentPage === pagination.lastPage ? 'tabindex="-1"' : ''}>Last</a>
+            </li>
+        </ul>
+    `;
+    document.querySelector('.card-footer nav').innerHTML = paginationHTML;
+}
+
+function generatePageNumbers(pagination) {
+    let pages = '';
+    for(let i = Math.max(1, pagination.currentPage - 2); 
+        i <= Math.min(pagination.totalPages, pagination.currentPage + 2); i++) {
+        pages += `
+            <li class="page-item ${pagination.currentPage === i ? 'active' : ''}">
+                <a class="page-link" href="?page=${i}">${i}</a>
+            </li>
+        `;
+    }
+    return pages;
 }
 
 function downloadReport(format) {

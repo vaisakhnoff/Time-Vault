@@ -57,7 +57,7 @@ const orderSchema = new mongoose.Schema({
         'Pending', 
         'Processing', 
         'Shipped', 
-        'Out for Delivery',  // Added this status
+        'Out for Delivery', 
         'Delivered', 
         'Cancelled', 
         'Return Requested', 

@@ -41,6 +41,7 @@ const addToCart = async (req, res) => {
         .status(401)
         .json({ success: false, message: "User not authenticated" });
     }
+    
 
     const product = await Product.findById(productId).lean();
     if (!product) {
@@ -117,7 +118,6 @@ const removeFromCart = async (req, res) => {
     const { productId } = req.body;
 
     const cart = await Cart.findOne({ userId });
-
     if (!cart) {
       return res.redirect("/cartPage");
     }
@@ -127,10 +127,10 @@ const removeFromCart = async (req, res) => {
     );
 
     await cart.save();
-    res.redirect("/cartPage");
+    res.json({ success: true, message: "Item removed successfully" });
   } catch (error) {
     console.error("Error removing item from cart:", error);
-    res.redirect("/pageNotFound");
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -141,6 +141,12 @@ const checkoutPage = async (req, res) => {
     const cart = await Cart.findOne({ userId })
       .populate("items.productId")
       .lean();
+
+      if (!cart || !cart.items.length) {
+        return res.redirect("/");
+      }
+  
+
     const addressData = await Address.find({ userId: userId }).lean();
 
     const cartTotal = cart
@@ -181,14 +187,15 @@ const placeOrder = async (req, res) => {
     const userId = req.session.user;
     const { addressId, paymentMethod } = req.body;
 
-    // This endpoint is for COD orders only.
+    // Only allow COD through this endpoint
     if (paymentMethod !== "COD") {
       return res.status(400).json({ message: "Invalid payment method" });
     }
 
     const cart = await Cart.findOne({ userId }).populate("items.productId");
     if (!cart || !cart.items.length) {
-      return res.status(400).json({ message: "Cart is empty" });
+      // When checkout page is empty, redirect to home page
+      return res.redirect("/");
     }
 
     const addressDoc = await Address.findOne({ "address._id": addressId });
@@ -199,23 +206,22 @@ const placeOrder = async (req, res) => {
       (addr) => addr._id.toString() === addressId
     );
 
-    // Calculate the cart total.
     let totalAmount = cart.items.reduce((total, item) => {
       return total + item.productId.salePrice * item.quantity;
     }, 0);
 
-    // Apply coupon discount if available.
     let couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
     let discountedTotal = totalAmount - couponDiscount;
     if (discountedTotal < 0) discountedTotal = 0;
 
-    // New check: COD is not allowed for orders above ₹1000.
-    if (discountedTotal > 1000) {
+    // Updated COD limit check: now orders above ₹5000 are not allowed
+    if (discountedTotal > 5000) {
       return res.status(400).json({
         success: false,
-        message: "COD is only available for orders up to ₹1000"
+        message: "COD is only available for orders up to ₹5,000"
       });
     }
+
     const order = new Order({
       user: userId,
       items: cart.items.map((item) => ({
@@ -233,14 +239,12 @@ const placeOrder = async (req, res) => {
 
     await order.save();
 
-    // Update product quantities.
     for (const item of cart.items) {
       await Product.findByIdAndUpdate(item.productId._id, {
         $inc: { quantity: -item.quantity },
       });
     }
-    
-    // Clear the cart.
+
     cart.items = [];
     await cart.save();
 
@@ -328,78 +332,7 @@ const updateCart = async (req, res) => {
   }
 };
 
-// const applyCoupon = async (req, res) => {
-//   try {
-//     console.log("Applying coupon...");
-//     const { couponCode } = req.body;
-//     if (!couponCode || couponCode.trim() === "") {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Please enter a coupon code" });
-//     }
-//     if (req.session.coupon) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "A coupon is already applied" });
-//     }
 
-  
-//     const coupon = await Coupon.findOne({
-//       couponCode: { $regex: new RegExp("^" + couponCode.trim() + "$", "i") },
-//       isList: true,
-//     });
-//     if (!coupon) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Coupon not found" });
-//     }
-//     if (new Date() > coupon.expireOn) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Coupon has expired" });
-//     }
-//     const userId = req.session.user;
-//     const cart = await Cart.findOne({ userId })
-//       .populate("items.productId")
-//       .lean();
-//     if (!cart || !cart.items.length) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Your cart is empty" });
-//     }
-//     const cartTotal = cart.items.reduce((total, item) => {
-//       return total + item.productId.salePrice * item.quantity;
-//     }, 0);
-//     if (cartTotal < coupon.minimumPrice) {
-//       return res.status(400).json({
-//         success: false,
-//         message: `Cart total must be at least ₹${coupon.minimumPrice} to apply this coupon`,
-//       });
-//     }
-
-//     // Store coupon details using couponCode instead of name
-//     req.session.coupon = {
-//       _id: coupon._id,
-//       code: coupon.couponCode, // <-- using coupon code for display!
-//       offerPrice: coupon.offerPrice,
-//       minimumPrice: coupon.minimumPrice,
-//     };
-
-//     return res.json({
-//       success: true,
-//       message: "Coupon applied",
-//       coupon: req.session.coupon,
-//       cartTotal,        // Original cart total without discount
-//       discount: coupon.offerPrice,
-//       grandTotal: cartTotal - coupon.offerPrice,
-//     });
-//   } catch (error) {
-//     console.error("Error applying coupon:", error);
-//     return res
-//       .status(500)
-//       .json({ success: false, message: "Internal server error" });
-//   }
-// };
 const applyCoupon = async (req, res) => {
   try {
     const { couponCode } = req.body;
@@ -448,7 +381,7 @@ const applyCoupon = async (req, res) => {
       });
     }
 
-    // Store coupon details consistently
+    
     req.session.coupon = {
       _id: coupon._id,
       code: coupon.couponCode,
@@ -460,7 +393,7 @@ const applyCoupon = async (req, res) => {
       success: true,
       message: "Coupon applied",
       coupon: {
-        code: coupon.couponCode,  // Use code consistently
+        code: coupon.couponCode, 
         offerPrice: coupon.offerPrice,
         minimumPrice: coupon.minimumPrice
       },

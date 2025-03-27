@@ -151,11 +151,19 @@
                      name="paymentMethod" 
                      value="COD" 
                      id="cod" 
-                     required>
+                     required
+                     <%= grandTotal > 5000 ? 'disabled' : '' %>>
               <label class="form-check-label" for="cod">
                 Cash on Delivery
+                <% if (grandTotal > 5000) { %>
+                    <small class="text-danger">(Not available for orders above ₹5,000)</small>
+                <% } else { %>
+                    <small class="text-muted">(Available for orders up to ₹5,000)</small>
+                <% } %>
               </label>
             </div>
+            
+            <!-- Rest of your payment options remain the same -->
             <div class="form-check">
               <input class="form-check-input" type="radio" 
                      name="paymentMethod" 
@@ -165,7 +173,6 @@
                 Online Payment
               </label>
             </div>
-            <!-- New Wallet Payment Option -->
             <div class="form-check">
               <input class="form-check-input" type="radio" 
                      name="paymentMethod" 
@@ -351,88 +358,124 @@
   // Listen to the form submit event for payment processing
 
   
-  document.getElementById('checkout-form').addEventListener('submit', async function(e) {
+// Update the checkout form event listener
+document.getElementById('checkout-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
     const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+    const grandTotal = parseFloat('<%= grandTotal %>');
+    const addressId = document.querySelector('input[name="addressId"]:checked').value;
+
+    // Check COD limit
+    if (paymentMethod === 'COD' && grandTotal > 5000) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Cash on Delivery Not Available',
+            text: 'COD is only available for orders up to ₹5,000. Please choose a different payment method.',
+            confirmButtonText: 'Okay',
+            confirmButtonColor: '#3085d6'
+        });
+        return;
+    }
 
     if (paymentMethod === 'Online') {
-      e.preventDefault(); // prevent form submission to /placeOrder
+        try {
+            const orderRes = await fetch('/createOnlineOrder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ addressId })
+            });
+            
+            if (!orderRes.ok) {
+                const error = await orderRes.json();
+                Swal.fire('Error', "Error creating order: " + error.message, 'error');
+                return;
+            }
+            
+            const { orderData } = await orderRes.json();
 
-      const addressId = document.querySelector('input[name="addressId"]:checked').value;
-      
-      // Create online order via API
-      const orderRes = await fetch('/createOnlineOrder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addressId })
-      });
-      if (!orderRes.ok) {
-        const error = await orderRes.json();
-        return alert("Error creating order: " + error.message);
-      }
-      const { orderData } = await orderRes.json();
+            var options = {
+                "key": "<%= razorpayKey %>",
+                "amount": orderData.amount,
+                "currency": "INR",
+                "name": "Your Store",
+                "description": "Order Payment",
+                "order_id": orderData.id,
+                "handler": async function(response) {
+                    try {
+                        const verifyRes = await fetch('/onlinePaymentSuccess', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                                addressId: addressId
+                            })
+                        });
+                        const verifyData = await verifyRes.json();
+                        if (verifyData.success) {
+                            window.location.href = '/orderSuccess';
+                        } else {
+                            Swal.fire('Error', 'Payment verification failed: ' + verifyData.error, 'error');
+                        }
+                    } catch (error) {
+                        Swal.fire('Error', 'Payment verification failed', 'error');
+                    }
+                },
+                "theme": { "color": "#3399cc" }
+            };
 
-      // Initialize Razorpay options with redirect false
-      var options = {
-        "key": "<%= razorpayKey %>",
-        "amount": orderData.amount,
-        "currency": "INR",
-        "name": "Your Store",
-        "description": "Order Payment",
-        "order_id": orderData.id,
-        "handler": async function(response) {
-          const verifyRes = await fetch('/onlinePaymentSuccess', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              addressId: addressId
-            })
-          });
-          const verifyData = await verifyRes.json();
-          if (verifyData.success) {
-            // Redirect to orderSuccess page instead of order details
-            window.location.href = '/orderSuccess';
-          } else {
-            alert('Payment verification failed: ' + verifyData.error);
-          }
-        },
-        "theme": { "color": "#3399cc" }
-      };
+            var rzp1 = new Razorpay(options);
+            rzp1.open();
 
-      var rzp1 = new Razorpay(options);
-      rzp1.open();
+        } catch (error) {
+            Swal.fire('Error', 'Failed to initialize payment', 'error');
+        }
 
     } else if (paymentMethod === 'Wallet') {
-      // Prevent normal form submission
-      e.preventDefault();
-      
-      const addressId = document.querySelector('input[name="addressId"]:checked').value;
-      
-      try {
-        const response = await fetch('/walletPaymentOrder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ addressId })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-          // Redirect to order success page
-          window.location.href = '/orderSuccess';
-        } else {
-          Swal.fire('Error', data.error || 'Wallet payment failed', 'error');
+        try {
+            const response = await fetch('/walletPaymentOrder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ addressId })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                window.location.href = '/orderSuccess';
+            } else {
+                Swal.fire('Error', data.error || 'Wallet payment failed', 'error');
+            }
+        } catch (error) {
+            console.error('Wallet payment error:', error);
+            Swal.fire('Error', 'Something went wrong!', 'error');
         }
-      } catch (error) {
-        console.error('Wallet payment error:', error);
-        Swal.fire('Error', 'Something went wrong!', 'error');
-      }
+
+    } else if (paymentMethod === 'COD') {
+        // For COD, submit the form normally
+        this.submit();
     } else {
-      // For COD, submit the form normally
-      e.target.submit();
+        Swal.fire('Error', 'Please select a payment method', 'error');
     }
-  });
+});
+
+// Add radio button change event listener to show warning for COD
+document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const grandTotal = parseFloat('<%= grandTotal %>');
+        if (this.value === 'COD' && grandTotal > 5000) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Cash on Delivery Not Available',
+                text: 'COD is only available for orders up to ₹5,000. Please choose a different payment method.',
+                confirmButtonText: 'Okay',
+                confirmButtonColor: '#3085d6'
+            });
+            this.checked = false; // Uncheck the COD option
+        }
+    });
+});
 </script>
 
 <style>
@@ -452,6 +495,23 @@
 
 .coupon-section .btn {
   vertical-align: baseline;
+}
+
+.form-check small.text-danger {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 0.8em;
+}
+
+.form-check small.text-muted {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 0.8em;
+}
+
+input[type="radio"]:disabled + label {
+    color: #6c757d;
+    cursor: not-allowed;
 }
 </style>
 

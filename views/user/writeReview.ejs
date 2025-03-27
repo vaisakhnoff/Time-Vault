@@ -1,0 +1,246 @@
+<%- include("../../views/partials/user/header") %>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Write a Review</h3>
+                </div>
+                <div class="card-body">
+                    <div class="product-info mb-4">
+                        <div class="d-flex">
+                            <img src="/uploads/product-images/<%= product.productImage[0] %>" 
+                                 alt="<%= product.productName %>"
+                                 style="width: 100px; height: 100px; object-fit: cover;"
+                                 class="me-3">
+                            <div>
+                                <h4><%= product.productName %></h4>
+                                <p class="text-muted">Order ID: <%= order._id %></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form action="/submitReview" method="POST" id="reviewForm" enctype="multipart/form-data">
+                        <input type="hidden" name="orderId" value="<%= order._id %>">
+                        <input type="hidden" name="productId" value="<%= product._id %>">
+
+                        <div class="mb-4">
+                            <label class="form-label">Rating</label>
+                            <div class="rating">
+                                <div class="stars">
+                                    <% for(let i=5; i>=1; i--) { %>
+                                        <input type="radio" name="rating" value="<%= i %>" id="star<%= i %>" required>
+                                        <label for="star<%= i %>">★</label>
+                                    <% } %>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Review Title</label>
+                            <input type="text" class="form-control" name="title" required
+                                   placeholder="Sum up your review in a short title">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Your Review</label>
+                            <textarea class="form-control" name="review" rows="4" required
+                                    placeholder="What did you like or dislike? What did you use this product for?"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Upload Photos (Optional)</label>
+                            <div class="image-upload-container">
+                                <input type="file" class="form-control" name="reviewImages" 
+                                       accept="image/*" multiple id="imageInput" 
+                                       onchange="previewImages(event)">
+                                <small class="text-muted">You can upload up to 3 images (JPG, PNG, WEBP)</small>
+                                <div id="imagePreview" class="d-flex gap-2 mt-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-secondary" 
+                                    onclick="window.location.href='/order/<%= order._id %>'">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">Submit Review</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.rating {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.stars {
+    display: flex;
+    flex-direction: row-reverse;
+}
+
+.stars input {
+    display: none;
+}
+
+.stars label {
+    cursor: pointer;
+    font-size: 30px;
+    color: #ddd;
+    padding: 5px;
+}
+
+.stars input:checked ~ label,
+.stars label:hover,
+.stars label:hover ~ label {
+    color: #ffd700;
+}
+
+.error-message {
+    color: #dc3545;
+    margin-top: 5px;
+    font-size: 0.875rem;
+}
+
+.preview-image-container {
+    position: relative;
+    display: inline-block;
+}
+
+.preview-image {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.btn-remove {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: red;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-upload-container {
+    max-width: 100%;
+}
+</style>
+
+<script>
+function previewImages(event) {
+    const preview = document.getElementById('imagePreview');
+    preview.innerHTML = '';
+    const files = event.target.files;
+
+    if (files.length > 3) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Too many images',
+            text: 'Please select maximum 3 images'
+        });
+        event.target.value = '';
+        return;
+    }
+
+    for (const file of files) {
+        if (file.size > 5 * 1024 * 1024) {
+            Swal.fire({
+                icon: 'error',
+                title: 'File too large',
+                text: 'Each image must be less than 5MB'
+            });
+            event.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const div = document.createElement('div');
+            div.className = 'preview-image-container';
+            div.innerHTML = `
+                <img src="${e.target.result}" class="preview-image">
+                <button type="button" class="btn-remove" onclick="removeImage(this)">×</button>
+            `;
+            preview.appendChild(div);
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+function removeImage(button) {
+    const container = button.parentElement;
+    container.remove();
+    document.getElementById('imageInput').value = '';
+}
+
+document.getElementById('reviewForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/submitReview', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: result.message,
+                timer: 2000
+            }).then(() => {
+                window.location.href = `/order/${formData.get('orderId')}`;
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: result.message
+            });
+        }
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Something went wrong while submitting the review'
+        });
+    }
+});
+
+document.getElementById('reviewForm').addEventListener('submit', function(e) {
+    const rating = document.querySelector('input[name="rating"]:checked');
+    const title = document.querySelector('input[name="title"]').value.trim();
+    const review = document.querySelector('textarea[name="review"]').value.trim();
+
+    if (!rating || !title || !review) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'error',
+            title: 'Please fill all fields',
+            text: 'Rating, title and review are required'
+        });
+    }
+});
+</script>
+
+<%- include("../../views/partials/user/footer") %>

@@ -54,13 +54,19 @@
                             <h2>Dashboard </h2>
                             <p>Whole data about your business here</p>
                         </div>
-                        <div class="form-group mb-0">
-                            <select id="globalFilter" class="form-select" onchange="updateAllCharts()">
+                        <div class="d-flex align-items-center">
+                            <select id="globalFilter" class="form-select me-2" onchange="updateAllCharts()">
                                 <option value="daily">Daily</option>
                                 <option value="weekly" selected>Weekly</option>
                                 <option value="monthly">Monthly</option>
                                 <option value="yearly">Yearly</option>
+                                <option value="custom">Custom</option>
                             </select>
+                            <div id="customDates" style="display: none;" class="d-flex">
+                                <input type="date" id="fromDate" class="form-control me-2" />
+                                <input type="date" id="toDate" class="form-control me-2" />
+                                <button type="button" class="btn btn-primary" onclick="updateAllCharts()">Apply</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -226,25 +232,7 @@
             </div>
         </div>
         
-        <!-- Report Download Section -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title mb-3">Download Reports</h5>
-                        <div class="d-flex gap-2">
-                            <button id="downloadExcel" class="btn btn-success">
-                                <i class="fas fa-file-excel"></i> Excel
-                            </button>
-                            <button id="downloadPDF" class="btn btn-danger">
-                                <i class="fas fa-file-pdf"></i> PDF
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+      
 
     <%- include("../partials/admin/footer") %>
 
@@ -254,17 +242,33 @@
         let salesChart, ordersChart, categoryChart, brandChart;
 
         function updateAllCharts() {
+            const filter = document.getElementById("globalFilter").value;
+            const customDatesDiv = document.getElementById("customDates");
+            if (filter === 'custom') {
+                customDatesDiv.style.display = "flex";
+            } else {
+                customDatesDiv.style.display = "none";
+            }
+
             // Add loading state to charts
             document.querySelectorAll(".card").forEach(card => {
                 card.classList.add("loading-state");
             });
-
-            const filter = document.getElementById("globalFilter").value;
+            
+            // Compose query params. For custom dates, include the from and to values.
+            let queryParams = `?filter=${filter}`;
+            if(filter === 'custom') {
+                const fromDate = document.getElementById("fromDate").value;
+                const toDate = document.getElementById("toDate").value;
+                if(fromDate && toDate) {
+                    queryParams += `&from=${fromDate}&to=${toDate}`;
+                }
+            }
 
             // Update best selling data with the same filter
             loadBestSelling(filter);
 
-            fetch(`/admin/dashboard-data?filter=${filter}`, {
+            fetch(`/admin/dashboard-data${queryParams}`, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json'
@@ -278,7 +282,7 @@
                 return response.json();
             })
             .then(data => {
-                console.log('Dashboard data:', data); // Debug logging
+                console.log('Dashboard data:', data);
                 document.getElementById("revenueValue").innerText = `₹ ${data.revenue.toLocaleString()}`;
                 document.getElementById("ordersValue").innerText = `${data.totalOrders.toLocaleString()} orders`;
                 document.getElementById("productsValue").innerText = `${data.totalProducts.toLocaleString()} products`;
@@ -307,7 +311,6 @@
             })
             .catch(error => {
                 console.error("Error fetching dashboard data:", error);
-
                 document.querySelectorAll(".card").forEach(card => {
                     card.classList.remove("loading-state");
                 });
@@ -349,7 +352,8 @@
                 // Update top performers
                 document.getElementById("bestBrand").innerText = data.bestSellingBrands[0]?.brand || "N/A";
                 document.getElementById("bestBrandSales").innerText = data.bestSellingBrands[0] ?
-                `${data.bestSellingBrands[0].totalSales} sales` : "0 sales";
+                `₹${data.bestSellingBrands[0].revenue.toLocaleString()} (${data.bestSellingBrands[0].totalSales} units)` : 
+                "No sales";
 
                 document.getElementById("bestCategory").innerText = data.bestSellingCategories[0]?.category || "N/A";
                 document.getElementById("bestCategorySales").innerText = data.bestSellingCategories[0] ?
@@ -365,8 +369,9 @@
         }
 
         function formatLabels(labels, filter) {
-            if (filter === "yearly") {
+            if (filter === "monthly" || filter === "yearly") {
                 return labels.map(label => {
+                    // label is formatted as "YYYY-MM"
                     const [year, month] = label.split("-");
                     const date = new Date(year, parseInt(month) - 1);
                     return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
@@ -374,18 +379,13 @@
             } else if (filter === "daily") {
                 return labels.map(label => {
                     const date = new Date(label);
-                    return date.toLocaleTimeString(undefined, { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
+                    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
                 });
             } else {
+                // For weekly or other filters, show month and day
                 return labels.map(label => {
                     const date = new Date(label);
-                    return date.toLocaleDateString(undefined, { 
-                        month: 'short', 
-                        day: 'numeric' 
-                    });
+                    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 });
             }
         }
@@ -537,36 +537,31 @@
             if (brandChart) brandChart.destroy();
             const ctx = document.getElementById("brandChart").getContext("2d");
 
+            // Format data for better display
+            const formattedLabels = labels.map(label => 
+                label.length > 15 ? label.substring(0, 15) + '...' : label
+            );
+
             brandChart = new Chart(ctx, {
                 type: "doughnut",
                 data: {
-                    labels: labels,
+                    labels: formattedLabels,
                     datasets: [{
-                        label: "Sales",
+                        label: "Brand Sales",
                         data: data,
                         backgroundColor: [
                             'rgba(54, 162, 235, 0.7)',
                             'rgba(255, 99, 132, 0.7)',
                             'rgba(255, 206, 86, 0.7)',
                             'rgba(75, 192, 192, 0.7)',
-                            'rgba(153, 102, 255, 0.7)',
-                            'rgba(255, 159, 64, 0.7)',
-                            'rgba(199, 199, 199, 0.7)',
-                            'rgba(83, 102, 255, 0.7)',
-                            'rgba(40, 159, 64, 0.7)',
-                            'rgba(210, 199, 199, 0.7)'
+                            'rgba(153, 102, 255, 0.7)'
                         ],
                         borderColor: [
                             'rgba(54, 162, 235, 1)',
                             'rgba(255, 99, 132, 1)',
                             'rgba(255, 206, 86, 1)',
                             'rgba(75, 192, 192, 1)',
-                            'rgba(153, 102, 255, 1)',
-                            'rgba(255, 159, 64, 1)',
-                            'rgba(199, 199, 199, 1)',
-                            'rgba(83, 102, 255, 1)',
-                            'rgba(40, 159, 64, 1)',
-                            'rgba(210, 199, 199, 1)'
+                            'rgba(153, 102, 255, 1)'
                         ],
                         borderWidth: 1
                     }]
@@ -584,11 +579,11 @@
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
-                                    const label = context.label || '';
+                                    const label = labels[context.dataIndex] || '';
                                     const value = context.parsed || 0;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
-                                    return `${label}: ${value} (${percentage}%)`;
+                                    return `${label}: ₹${value.toLocaleString()} (${percentage}%)`;
                                 }
                             }
                         }
@@ -597,60 +592,5 @@
             });
         }
 
-        // Excel and PDF downloads event listeners
-        document.getElementById('downloadExcel').addEventListener('click', async function() {
-            const filter = document.getElementById('globalFilter').value;
-            try {
-                const response = await fetch(`/admin/download-report?reportType=${filter}&format=excel`, {
-                    method: 'GET'
-                });
-                
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `sales-report-${filter}.xlsx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                } else {
-                    throw new Error('Download failed');
-                }
-            } catch (error) {
-                console.error('Error downloading report:', error);
-                alert('Failed to download Excel report');
-            }
-        });
-
-        document.getElementById('downloadPDF').addEventListener('click', async function() {
-            const filter = document.getElementById('globalFilter').value;
-            try {
-                const response = await fetch(`/admin/download-report?reportType=${filter}&format=pdf`, {
-                    method: 'GET'
-                });
-                
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `sales-report-${filter}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                } else {
-                    throw new Error('Download failed');
-                }
-            } catch (error) {
-                console.error('Error downloading report:', error);
-                alert('Failed to download PDF report');
-            }
-        });
-
-        document.addEventListener("DOMContentLoaded", () => {
-            updateAllCharts();
-        });
+    
     </script>

@@ -28,7 +28,7 @@ const getProductInfo = async (req, res) => {
 
         const products = await Product.find(query)
             .populate('category')
-            .populate('brand') // Add this line
+            .populate('brand') 
             .select('productName brand category regularPrice salePrice productOffer quantity isBlocked productImage') 
             .sort({ createdAt: -1 })
             .skip(page * perPage)
@@ -53,11 +53,11 @@ const getProductInfo = async (req, res) => {
 const getProductAddPage = async(req,res)=>{
     try {
         const category = await Category.find({isListed:true});
-        const brands = await Brand.find({isBlocked: false}); // Add this line
+        const brands = await Brand.find({isBlocked: false});
         
         res.render('product-add', {
             cat: category,
-            brands: brands // Add this
+            brands: brands
         });
     } catch (error) {   
         console.error("Error:", error);
@@ -91,7 +91,7 @@ images.push(resizedFileName);
                 }
             }
             const categoryId = await Category.findOne({name:products.category});
-            const brandId = await Brand.findOne({brandName: products.brand}); // Add this line
+            const brandId = await Brand.findOne({brandName: products.brand}); 
             
             if(!categoryId){
                 return res.status(400).send('Invalid category name');
@@ -193,7 +193,7 @@ const editProduct = async (req, res) => {
         const productId = req.params.id;
         const updatedData = req.body;
         
-        // Find the existing product first
+        
         const existingProduct = await Product.findById(productId);
         if (!existingProduct) {
             return res.status(404).json({ 
@@ -202,7 +202,7 @@ const editProduct = async (req, res) => {
             });
         }
 
-        // Check for duplicate product name
+      
         if (updatedData.productName && 
             updatedData.productName !== existingProduct.productName) {
             const duplicate = await Product.findOne({ 
@@ -216,14 +216,14 @@ const editProduct = async (req, res) => {
             }
         }
 
-        // Handle image updates
+        
         let images = existingProduct.productImage;
         if (req.files && req.files.length > 0) {
-            // ...existing image handling code...
+           
         }
         updatedData.productImage = images;
 
-        // Find category and brand documents
+        
         const categoryDoc = await Category.findOne({ name: updatedData.category });
         const brandDoc = await Brand.findOne({ brandName: updatedData.brand });
 
@@ -241,7 +241,7 @@ const editProduct = async (req, res) => {
             });
         }
 
-        // Update the references
+       
         updatedData.category = categoryDoc._id;
         updatedData.brand = brandDoc._id;
         updatedData.updatedOn = new Date();
@@ -276,7 +276,7 @@ const addProductOffer = async (req, res) => {
       });
     }
 
-    // Populate both category and brand for discount calculation.
+   
     const product = await Product.findById(productId)
       .populate('category')
       .populate('brand');
@@ -288,10 +288,9 @@ const addProductOffer = async (req, res) => {
       });
     }
 
-    // Set the product offer
     product.productOffer = percentage;
     
-    // Calculate individual discount factors.
+
     const productOfferDiscount = 1 - percentage / 100;
     const categoryOfferDiscount = product.category?.categoryOffer 
       ? (1 - product.category.categoryOffer / 100) 
@@ -300,7 +299,7 @@ const addProductOffer = async (req, res) => {
       ? (1 - product.brand.brandOffer / 100)
       : 1;
       
-    // Apply the best discount (lowest factor equals highest discount)
+    
     const finalDiscountFactor = Math.min(productOfferDiscount, categoryOfferDiscount, brandOfferDiscount);
     
     product.salePrice = product.regularPrice * finalDiscountFactor;
@@ -327,7 +326,7 @@ const addProductOffer = async (req, res) => {
 const removeProductOffer = async (req, res) => {
   try {
     const { productId } = req.body;
-    // Populate category and brand to perform recalculation.
+   
     const product = await Product.findById(productId)
       .populate('category')
       .populate('brand');
@@ -339,10 +338,10 @@ const removeProductOffer = async (req, res) => {
       });
     }
   
-    // Remove product offer
+  
     product.productOffer = 0;
     
-    // Calculate discount factors using category and brand offers
+   
     const categoryOfferDiscount = product.category?.categoryOffer 
       ? (1 - product.category.categoryOffer / 100)
       : 1;

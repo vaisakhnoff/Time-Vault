@@ -36,7 +36,7 @@ const customerInfo = async (req, res) => {
     const count = await User.countDocuments(query);
     const totalPages = Math.ceil(count / limit);
 
-    // Pass data to the EJS template
+   
     res.render('customers', { 
       data: userData, 
       totalPages, 

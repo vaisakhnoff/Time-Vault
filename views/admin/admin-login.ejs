@@ -19,6 +19,8 @@
   <link rel="stylesheet" href="/css/bootstrap.css">
   <link rel="stylesheet" href="/css/main.css">
 
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   <style>
     /* If you’re using a background video or image, ensure it’s behind everything else. */
     #video-background, .background-image {
@@ -127,32 +129,79 @@
   <script src="/js/vendor/bootstrap.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      const adminLoginForm = document.getElementById("adminLoginForm");
-      const emailField = document.getElementById("adminEmail");
-      const passwordField = document.getElementById("adminPassword");
-      const emailError = document.getElementById("emailError");
-      const passwordError = document.getElementById("passwordError");
+        const adminLoginForm = document.getElementById("adminLoginForm");
+        const emailField = document.getElementById("adminEmail");
+        const passwordField = document.getElementById("adminPassword");
+        const emailError = document.getElementById("emailError");
+        const passwordError = document.getElementById("passwordError");
 
-      adminLoginForm.addEventListener("submit", function (event) {
-        let isValid = true;
-        const emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-        if (!emailPattern.test(emailField.value)) {
-          emailError.textContent = "Invalid email format";
-          isValid = false;
-        } else {
-          emailError.textContent = "";
-        }
-        if (passwordField.value.length < 8) {
-          passwordError.textContent = "Password should contain at least 8 characters";
-          isValid = false;
-        } else {
-          passwordError.textContent = "";
-        }
-        if (!isValid) {
-          event.preventDefault();
-        }
-      });
+        adminLoginForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+            let isValid = true;
+            
+            // Clear previous errors
+            emailError.textContent = "";
+            passwordError.textContent = "";
+
+            // Validate email format
+            const emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
+            if (!emailPattern.test(emailField.value)) {
+                emailError.textContent = "Invalid email format";
+                isValid = false;
+            }
+
+            // Validate password length
+            if (passwordField.value.length < 8) {
+                passwordError.textContent = "Password should contain at least 8 characters";
+                isValid = false;
+            }
+
+            if (isValid) {
+                try {
+                    const response = await fetch('/admin/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            email: emailField.value,
+                            password: passwordField.value
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // Show success message and redirect
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Login Successful',
+                            text: 'Redirecting to dashboard...',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = data.redirect;
+                        });
+                    } else {
+                        // Show error message
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Login Failed',
+                            text: data.message,
+                            confirmButtonColor: '#3085d6'
+                        });
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'An unexpected error occurred',
+                        confirmButtonColor: '#3085d6'
+                    });
+                }
+            }
+        });
     });
-  </script>
+</script>
 </body>
 </html>

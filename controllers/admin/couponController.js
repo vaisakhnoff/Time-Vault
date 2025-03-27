@@ -15,7 +15,6 @@ const addCoupon = async (req, res) => {
     try {
         const { couponName, couponCode, startDate, endDate, offerPrice, minimumPrice, maxPrice } = req.body;
 
-        // Validate that coupon code and name are different
         if (couponName.toUpperCase() === couponCode) {
             return res.status(400).json({
                 success: false,
@@ -23,7 +22,6 @@ const addCoupon = async (req, res) => {
             });
         }
 
-        // Validate dates
         const startDateObj = new Date(startDate);
         const endDateObj = new Date(endDate);
         const today = new Date();
@@ -36,7 +34,6 @@ const addCoupon = async (req, res) => {
             });
         }
 
-        // Validate prices
         const offerPriceNum = parseInt(offerPrice);
         const minimumPriceNum = parseInt(minimumPrice);
         const maxPriceNum = parseInt(maxPrice);
@@ -48,7 +45,6 @@ const addCoupon = async (req, res) => {
             });
         }
 
-        // Check if coupon name or code exists
         const existingCoupon = await Coupon.findOne({
             $or: [
                 { name: couponName },
@@ -76,13 +72,20 @@ const addCoupon = async (req, res) => {
         });
 
         await newCoupon.save();
-        
+
         return res.status(200).json({
             success: true,
             message: 'Coupon added successfully'
         });
     } catch (error) {
         console.error('Error adding coupon:', error);
+        // Check if duplicate key error
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'A coupon with this name or code already exists.'
+            });
+        }
         return res.status(500).json({
             success: false,
             message: 'Internal server error'
@@ -119,7 +122,7 @@ const editCoupon = async (req, res) => {
             maxPrice 
         } = req.body;
 
-        // Validate that coupon code and name are different
+       
         if (couponName.toUpperCase() === couponCode) {
             return res.status(400).json({
                 success: false,
@@ -127,7 +130,7 @@ const editCoupon = async (req, res) => {
             });
         }
 
-        // Validate dates
+     
         const endDateObj = new Date(endDate);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -139,7 +142,6 @@ const editCoupon = async (req, res) => {
             });
         }
 
-        // Validate prices
         const offerPriceNum = parseInt(offerPrice);
         const minimumPriceNum = parseInt(minimumPrice);
         const maxPriceNum = parseInt(maxPrice);
@@ -151,7 +153,7 @@ const editCoupon = async (req, res) => {
             });
         }
 
-        // Check if name or code exists (excluding current coupon)
+       
         const existingCoupon = await Coupon.findOne({
             $or: [
                 { name: couponName },

@@ -470,26 +470,59 @@
     });
 	
 }
+// Replace the existing addToCart function
 function addToCart(productId) {
-    fetch('/addToCart', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ id: productId })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            Swal.fire("Success", data.message, "success");
-        } else {
-            Swal.fire("Alert", data.message, "warning");
+  fetch('/addToCart', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ id: productId })
+  })
+  .then(response => {
+    if (response.status === 401) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Authentication Required',
+        text: 'Please login to add items to cart',
+        showCancelButton: true,
+        confirmButtonText: 'Login',
+        cancelButtonText: 'Cancel'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          window.location.href = '/login';
         }
-    })
-    .catch(error => {
-        Swal.fire("Error", "Something went wrong", "error");
+      });
+      return; // Exit early
+    }
+    return response.json(); // Only parse JSON if not 401
+  })
+  .then(data => {
+    if (!data) return; // Skip if no data (e.g., after 401)
+    if (data.success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: data.message,
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } else {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Alert',
+        text: data.message
+      });
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Something went wrong while adding to cart'
     });
-	
+  });
 }
  </script>
 

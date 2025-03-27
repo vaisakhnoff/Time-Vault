@@ -1,5 +1,119 @@
 <%- include("../../views/partials/user/header") %>
+<style>
+.order-timeline {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
 
+.timeline-container {
+  position: relative;
+}
+
+.timeline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background-color: #e0e0e0;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.timeline-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 25%;
+  position: relative;
+  z-index: 2;
+}
+
+.timeline-item.active .timeline::before {
+  background: linear-gradient(to right, #4CAF50 0%, #4CAF50 100%);
+}
+
+.timeline-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+  background-color: #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.timeline-item.active .timeline-icon {
+  background-color: #4CAF50;
+  box-shadow: 0 0 0 10px rgba(76, 175, 80, 0.2);
+}
+
+.timeline-icon i {
+  font-size: 24px;
+}
+
+.timeline-content {
+  text-align: center;
+}
+
+.timeline-content h5 {
+  margin: 0;
+  font-weight: bold;
+  color: #6c757d;
+}
+
+.timeline-item.active .timeline-content h5 {
+  color: #4CAF50;
+}
+
+.timeline-content p {
+  margin: 5px 0 0;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+  .timeline {
+    flex-direction: column;
+  }
+  
+  .timeline::before {
+    width: 4px;
+    height: 100%;
+    left: 30px;
+    top: 0;
+  }
+  
+  .timeline-item {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .timeline-icon {
+    margin-right: 15px;
+    margin-bottom: 0;
+  }
+  
+  .timeline-content {
+    text-align: left;
+  }
+}
+</style>
 <!-- Spacer to create gap between header and contents -->
 <div style="height: 100px;"></div>
 
@@ -14,20 +128,58 @@
     <div class="card-body">
       <!-- Order Status Timeline -->
       <div class="order-timeline mb-4">
-        <div class="status-track">
-          <% const statuses = ['Pending', 'Processing', 'Shipped', 'Delivered'] %>
-          <% const currentIndex = statuses.indexOf(order.orderStatus) %>
-          <% statuses.forEach((status, index) => { %>
-            <div class="status-step <%= index <= currentIndex ? 'active' : '' %>">
-              <div class="status-point"></div>
-              <div class="status-label"><%= status %></div>
-              <div class="status-date">
-                <% if (order.statusUpdates && order.statusUpdates[status]) { %>
-                  <%= new Date(order.statusUpdates[status]).toLocaleDateString() %>
-                <% } %>
+        <div class="timeline-container">
+          <% 
+            // Define normal timeline statuses
+            const normalStatuses = ['Pending', 'Shipped', 'Out for Delivery', 'Delivered'];
+          %>
+          <% if(normalStatuses.includes(order.orderStatus)) { 
+               // Determine current status index
+               const currentIndex = normalStatuses.indexOf(order.orderStatus);
+          %>
+            <div class="timeline">
+              <% normalStatuses.forEach((status, index) => { %>
+                <div class="timeline-item <%= index <= currentIndex ? 'active' : '' %>">
+                  <div class="timeline-icon">
+                    <% if (status === 'Pending') { %>
+                      <i class="fa fa-clock-o"></i>
+                    <% } else if (status === 'Shipped') { %>
+                      <i class="fa fa-truck"></i>
+                    <% } else if (status === 'Out for Delivery') { %>
+                      <i class="fa fa-motorcycle"></i>
+                    <% } else if (status === 'Delivered') { %>
+                      <i class="fa fa-check-circle"></i>
+                    <% } %>
+                  </div>
+                  <div class="timeline-content">
+                    <h5><%= status %></h5>
+                    <% if (order.statusUpdates && order.statusUpdates[status]) { %>
+                      <p class="text-muted">
+                        <%= new Date(order.statusUpdates[status]).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+                      </p>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <!-- Special cases: only show the special status -->
+            <div class="timeline">
+              <div class="timeline-item active">
+                <div class="timeline-icon">
+                  <i class="fa fa-info-circle"></i>
+                </div>
+                <div class="timeline-content">
+                  <h5><%= order.orderStatus %></h5>
+                  <% if (order.statusUpdates && order.statusUpdates[order.orderStatus]) { %>
+                    <p class="text-muted">
+                      <%= new Date(order.statusUpdates[order.orderStatus]).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+                    </p>
+                  <% } %>
+                </div>
               </div>
             </div>
-          <% }) %>
+          <% } %>
         </div>
       </div>
 
@@ -72,6 +224,12 @@
                                 onclick="returnOrderItem('<%= order._id %>', '<%= item._id %>')">
                           Return Item
                         </button>
+                      <% } %>
+                      <% if (order.orderStatus === 'Delivered' && !item.reviewed) { %>
+                        <a href="/review?orderId=<%= order._id %>&productId=<%= item.productId._id %>" 
+                           class="btn btn-sm btn-primary">
+                            Write Review
+                        </a>
                       <% } %>
                       <% if (item.status) { %>
                         <span class="badge bg-<%= 
@@ -217,11 +375,22 @@
         })
         .then(res => res.json())
         .then(data => {
-          Swal.fire({
-            icon: data.success ? 'success' : 'error',
-            title: data.success ? 'Cancelled' : 'Error',
-            text: data.message
-          }).then(() => location.reload());
+          if (data.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Cancelled',
+              text: data.message
+            }).then(() => {
+              // Force reload to show updated status
+              window.location.reload();
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message
+            });
+          }
         })
         .catch(error => {
           console.error(error);

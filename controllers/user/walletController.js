@@ -15,9 +15,9 @@ const wallet = async (req, res) => {
   try {
     const userId = req.session.user;
     const page = parseInt(req.query.page) || 1;
-    const limit = 5; // maximum 5 transactions per page
+    const limit = 5; 
 
-    // Fetch user data and populate redeemedUsers
+   
     const userData = await User.findById(userId)
       .populate('redeemedUsers', 'firstName lastName')
       .lean();
@@ -26,11 +26,11 @@ const wallet = async (req, res) => {
       throw new Error('User not found');
     }
 
-    // Set wallet values
+    
     const walletBalance = userData.wallet;
     const referralEarnings = (userData.redeemedUsers?.length || 0) * 100;
 
-    // Fetch paginated wallet transactions
+   
     const transactions = await WalletTransaction.find({ userId: userId })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -87,7 +87,7 @@ const createOrder = async (req, res) => {
 const paymentSuccess = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = req.body;
-    // Verify payment signature
+   
     const generated_signature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest('hex');
@@ -96,7 +96,6 @@ const paymentSuccess = async (req, res) => {
       return res.status(400).json({ success: false, message: "Payment verification failed" });
     }
     
-    // Payment verified; update user's wallet
     const userId = req.session.user;
     const user = await User.findById(userId);
     if (!user) {
@@ -105,7 +104,6 @@ const paymentSuccess = async (req, res) => {
     user.wallet = (user.wallet || 0) + amount; // add amount (in rupees)
     await user.save();
     
-    // Create a wallet transaction record
     const walletTx = new WalletTransaction({
       userId: user._id,
       amount: amount,
