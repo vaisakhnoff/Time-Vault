@@ -210,7 +210,7 @@ async function generateExcelReport(orders, res) {
         const originalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const actualCouponDiscount = originalAmount - order.totalAmount;
         worksheet.addRow({
-            orderId: order._id.toString(),
+            orderId: order.orderId,
             date: order.createdAt.toLocaleDateString(),
             customer: `${order.user.firstName} ${order.user.lastName}`,
             items: order.items.map(item =>

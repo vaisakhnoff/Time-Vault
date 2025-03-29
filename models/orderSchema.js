@@ -4,9 +4,12 @@ const {v4:uuidv4} = require('uuid');
 const address = require('./addressSchema');
 
 
-
-
 const orderSchema = new mongoose.Schema({
+    orderId: {
+        type: String,
+        default: () => `ORD-${uuidv4().substring(0, 8).toUpperCase()}`,
+        unique: true
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'user',

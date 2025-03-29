@@ -268,7 +268,6 @@ const editProduct = async (req, res) => {
 const addProductOffer = async (req, res) => {
   try {
     const { productId, percentage } = req.body;
-    
     if (!percentage || percentage <= 0 || percentage > 99) {
       return res.status(400).json({
         success: false,
@@ -276,7 +275,6 @@ const addProductOffer = async (req, res) => {
       });
     }
 
-   
     const product = await Product.findById(productId)
       .populate('category')
       .populate('brand');
@@ -288,21 +286,29 @@ const addProductOffer = async (req, res) => {
       });
     }
 
+    // Store baseline sale price from the current salePrice if not already stored
+    if (product.oldSalePrice === undefined) {
+      product.oldSalePrice = product.salePrice;
+    }
+
+    // Update the product's offer percentage
     product.productOffer = percentage;
     
-
-    const productOfferDiscount = 1 - percentage / 100;
-    const categoryOfferDiscount = product.category?.categoryOffer 
-      ? (1 - product.category.categoryOffer / 100) 
-      : 1;
-    const brandOfferDiscount = product.brand?.brandOffer
-      ? (1 - product.brand.brandOffer / 100)
-      : 1;
+    // Calculate discount multipliers based on each offer:
+    // For product: 1 - (productOffer/100)
+    // For category: if available, 1 - (categoryOffer/100), else 1
+    // For brand: if available, 1 - (brandOffer/100), else 1
+    const productFactor = product.productOffer > 0 ? (1 - product.productOffer / 100) : 1;
+    const categoryFactor = (product.category && product.category.categoryOffer > 0)
+      ? (1 - product.category.categoryOffer / 100) : 1;
+    const brandFactor = (product.brand && product.brand.brandOffer > 0)
+      ? (1 - product.brand.brandOffer / 100) : 1;
       
+    // Choose the best discount multiplier (lowest number gives the highest discount)
+    const finalFactor = Math.min(productFactor, categoryFactor, brandFactor);
     
-    const finalDiscountFactor = Math.min(productOfferDiscount, categoryOfferDiscount, brandOfferDiscount);
-    
-    product.salePrice = product.regularPrice * finalDiscountFactor;
+    // Apply the discount on the stored baseline sale price (oldSalePrice)
+    product.salePrice = product.oldSalePrice * finalFactor;
 
     await product.save();
 
@@ -322,39 +328,43 @@ const addProductOffer = async (req, res) => {
     });
   }
 };
-  
+
 const removeProductOffer = async (req, res) => {
   try {
     const { productId } = req.body;
-   
+    
     const product = await Product.findById(productId)
       .populate('category')
       .populate('brand');
-  
+    
     if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
-  
-  
+    
+    // Remove the product offer
     product.productOffer = 0;
-    
-   
-    const categoryOfferDiscount = product.category?.categoryOffer 
-      ? (1 - product.category.categoryOffer / 100)
-      : 1;
-    const brandOfferDiscount = product.brand?.brandOffer
-      ? (1 - product.brand.brandOffer / 100)
-      : 1;
+
+    // Calculate discount multipliers from category and brand only:
+    const categoryFactor = (product.category && product.category.categoryOffer > 0)
+      ? (1 - product.category.categoryOffer / 100) : 1;
+    const brandFactor = (product.brand && product.brand.brandOffer > 0)
+      ? (1 - product.brand.brandOffer / 100) : 1;
       
-    const finalDiscountFactor = Math.min(categoryOfferDiscount, brandOfferDiscount);
+    // The best discount multiplier among category and brand offers
+    const finalFactor = Math.min(categoryFactor, brandFactor);
     
-    product.salePrice = product.regularPrice * finalDiscountFactor;
-  
+    // Revert salePrice to the stored baseline with remaining offers applied.
+    // If oldSalePrice is not set/valid, fallback to regularPrice.
+    const baseline = (typeof product.oldSalePrice !== 'undefined' && !isNaN(product.oldSalePrice))
+                      ? product.oldSalePrice 
+                      : product.regularPrice;
+    product.salePrice = baseline * finalFactor;
+
     await product.save();
-  
+    
     return res.json({
       success: true,
       message: 'Product offer removed successfully',
@@ -371,16 +381,15 @@ const removeProductOffer = async (req, res) => {
     });
   }
 };
-  
 
-module.exports ={
-    getProductAddPage,
-    getProductInfo,
-    addProducts,
-    blockProduct,
-    unblockProduct,
-    getEditProduct,
-    editProduct,
-    addProductOffer,
-    removeProductOffer
-}
+module.exports = {
+  getProductAddPage,
+  getProductInfo,
+  addProducts,
+  blockProduct,
+  unblockProduct,
+  getEditProduct,
+  editProduct,
+  addProductOffer,
+  removeProductOffer
+};

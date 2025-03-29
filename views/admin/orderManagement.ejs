@@ -34,14 +34,13 @@
       <% if(orders && orders.length > 0) { %>
         <% orders.forEach(order => { %>
           <tr>
-            <td><%= order._id %></td>
+            <td><%= order.orderId %></td>
             <td><%= new Date(order.createdAt).toLocaleDateString() %></td>
             <td><%= order.user ? order.user.firstName : 'N/A' %></td>
             <td><%= order.orderStatus %></td>
             <td>₹<%= order.totalAmount %></td>
             <td>
-              <a href="/admin/order/<%= order._id %>" class="btn btn-info btn-sm">View</a>
-              <!-- You can include further controls here such as inline edit buttons -->
+              <a href="/admin/order/<%= order.orderId %>" class="btn btn-info btn-sm">View</a>
             </td>
           </tr>
         <% }); %>

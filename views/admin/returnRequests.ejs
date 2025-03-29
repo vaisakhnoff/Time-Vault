@@ -22,14 +22,22 @@
             <% if(returnRequests && returnRequests.length > 0) { %>
               <% returnRequests.forEach(request => { %>
                 <tr>
-                  <td><a href="/admin/order/<%= request.orderId %>">
-                    <%= request.orderId %>
-                  </a></td>
-                  <td><%= request.customer.firstName %> <%= request.customer.lastName %></td>
-                  <td><%= new Date(request.orderDate).toLocaleDateString() %></td>
-                  <td><%= request.product.productName %></td>
-                  <td><%= request.reason %></td>
-                  <td>₹<%= request.amount %></td>
+                  <td>
+                    <a href="/admin/order/<%= request.orderId %>">
+                      <%= request.orderId %>
+                    </a>
+                  </td>
+                  <td>
+                    <%= request.customer ? `${request.customer.firstName} ${request.customer.lastName}` : 'N/A' %>
+                  </td>
+                  <td>
+                    <%= formatDate(request.orderDate) %>
+                  </td>
+                  <td>
+                    <%= request.product ? request.product.productName : 'Product Not Found' %>
+                  </td>
+                  <td><%= request.reason || 'No reason provided' %></td>
+                  <td>₹<%= request.amount ? request.amount.toFixed(2) : '0.00' %></td>
                   <td>
                     <div class="btn-group">
                       <button class="btn btn-success btn-sm" 

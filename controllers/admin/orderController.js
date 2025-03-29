@@ -3,8 +3,7 @@ const user = require('../../models/userschema'); //
 const Address = require('../../models/addressSchema');
 const WalletTransaction = require('../../models/walletSchema');
 const Product = require('../../models/productSchema');
-
-
+const ExcelJS = require('exceljs');
 
 
 const listOrders = async (req, res) => {
@@ -54,47 +53,29 @@ const listOrders = async (req, res) => {
 const viewOrderDetails = async (req, res) => {
   try {
     const orderId = req.params.id;
-    const order = await Order.findById(orderId)
-    
+    const order = await Order.findOne({ orderId: orderId })
       .populate('user', 'firstName lastName email phone')
       .populate('items.productId', 'productName productImage salePrice')
       .lean();
-     
-    
-      const userId = order.user._id;
-      
-
-       
-          const userData = await user.findById(userId).lean();
-
-      
-      const addressDoc = await Address.findOne({ userId: userId }).lean();
-      
-      
-          let selectedAddress = null;
-      
-      
-          if (addressDoc && addressDoc.address && order.address) {
-            console.log("Order address value:", order.address.toString());
-            console.log("User Addresses:", addressDoc.address.map(addr => addr._id.toString()));
-            selectedAddress = addressDoc.address.find(addr =>
-              addr._id.toString() === order.address.toString()
-            );
-          }
-      
-       
-
-
-
-
 
     if (!order) return res.redirect('/admin/orders');
+    const userId = order.user._id;
+    const userData = await user.findById(userId).lean();
+    const addressDoc = await Address.findOne({ userId: userId }).lean();
+    let selectedAddress = null;
+
+    if (addressDoc && addressDoc.address && order.address) {
+      console.log("Order address value:", order.address.toString());
+      console.log("User Addresses:", addressDoc.address.map(addr => addr._id.toString()));
+      selectedAddress = addressDoc.address.find(addr =>
+        addr._id.toString() === order.address.toString()
+      );
+    }
 
     res.render('orderDetail', { order,
-        address:selectedAddress,
-        user:userData
-
-     });
+        address: selectedAddress,
+        user: userData
+    });
   } catch (error) {
     console.error('Error viewing order details:', error);
     res.redirect('/pageNotFound');
@@ -107,7 +88,7 @@ const updateOrderStatus = async (req, res) => {
     const { orderId, newStatus } = req.body;
     const validStatuses = ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
     
-    const order = await Order.findById(orderId);
+    const order = await Order.findOne({ orderId: orderId });
     if (!order) {
       return res.status(404).json({ 
         success: false, 
@@ -208,10 +189,7 @@ const updateOrderStatus = async (req, res) => {
 const listReturnRequests = async (req, res) => {
   try {
     let orders = await Order.find({
-      $or: [
-        { orderStatus: 'Return Requested' },
-        { 'items.status': 'Return Requested' }
-      ]
+      'items.status': 'Return Requested'
     })
     .populate('user', 'firstName lastName')
     .populate('items.productId', 'productName productImage price')
@@ -220,49 +198,43 @@ const listReturnRequests = async (req, res) => {
     const returnRequests = [];
     
     orders.forEach(order => {
-      if (order.orderStatus === 'Return Requested') {
-        // Push only the global request and ignore individual items
-        returnRequests.push({
-          orderId: order._id,
-          orderDate: order.createdAt,
-          customer: order.user,
-          isGlobalReturn: true,
-          totalAmount: order.totalAmount,
-          reason: order.returnRequest?.reason || 'N/A',
-          items: order.items
-        });
-      } else {
-        
-        order.items.forEach(item => {
-          if (item.status === 'Return Requested') {
-            returnRequests.push({
-              orderId: order._id,
-              orderDate: order.createdAt,
-              customer: order.user,
-              isGlobalReturn: false,
-              product: item.productId,
-              quantity: item.quantity,
-              amount: item.price * item.quantity,
-              reason: item.returnReason || 'N/A'
-            });
-          }
-        });
-      }
+      order.items.forEach(item => {
+        if (item.status === 'Return Requested') {
+          returnRequests.push({
+            orderId: order.orderId,
+            orderDate: order.createdAt,
+            customer: order.user,
+            product: item.productId,
+            quantity: item.quantity,
+            amount: item.price * item.quantity,
+            reason: item.returnReason || 'N/A',
+            itemId: item._id
+          });
+        }
+      });
     });
 
+    // Sort by date, most recent first
     returnRequests.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
     
-    res.render('returnRequests', { returnRequests });
+    res.render('returnRequests', { 
+      returnRequests,
+      formatDate: (date) => new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    });
   } catch (error) {
     console.error('Error fetching return requests:', error);
-    res.redirect('/pageNotFound');
+    res.redirect('/admin/orders');
   }
 };
 
 const processReturnRequest = async (req, res) => {
   try {
     const { orderId, approve, productId } = req.body;
-    const order = await Order.findById(orderId)
+    const order = await Order.findOne({ orderId: orderId }) // Changed from findById
       .populate('user')
       .populate('items.productId');
     
@@ -338,11 +310,31 @@ const processReturnRequest = async (req, res) => {
   }
 };
 
+async function generateExcelReport(orders, res) {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Sales Report');
+
+    worksheet.columns = [
+        { header: 'Order ID', key: 'orderId', width: 20 },
+        // ... rest of the columns ...
+    ];
+
+    orders.forEach(order => {
+        const originalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const actualCouponDiscount = originalAmount - order.totalAmount;
+        worksheet.addRow({
+            orderId: order.orderId,
+            // ... rest of the fields ...
+        });
+    });
+    // ... rest of the function ...
+}
 
 module.exports = {
   listOrders,
   viewOrderDetails,
   updateOrderStatus,
   listReturnRequests,
-  processReturnRequest
+  processReturnRequest,
+  generateExcelReport
 };

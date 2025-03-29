@@ -64,50 +64,119 @@
         </div>
         <%- include("../../views/partials/admin/footer") %>
         <script>
-            document.addEventListener('DOMContentLoaded', () => {
-              // Using event delegation to catch clicks on block/unblock buttons
-              document.addEventListener('click', async (event) => {
-                const target = event.target;
-                
-                // Check if the clicked element is one of our buttons
-                if (target.matches('.blockCustomer')) {
-                  event.preventDefault();
-                  const id = target.getAttribute('data-id');
-                  
-                  try {
-                    const response = await fetch(`/admin/blockCustomer?id=${id}`);
-                    const result = await response.json();
-                    if (result.success) {
-                      // Update the button to show 'Unblock'
-                      target.classList.remove('blockCustomer', 'btn-danger');
-                      target.classList.add('unblockCustomer', 'btn-success');
-                      target.textContent = 'Unblock';
-                    } else {
-                      console.error(result.message);
-                    }
-                  } catch (error) {
-                    console.error('Error blocking customer:', error);
-                  }
-                } else if (target.matches('.unblockCustomer')) {
-                  event.preventDefault();
-                  const id = target.getAttribute('data-id');
-                  
-                  try {
-                    const response = await fetch(`/admin/unblockCustomer?id=${id}`);
-                    const result = await response.json();
-                    if (result.success) {
-                      // Update the button to show 'Block'
-                      target.classList.remove('unblockCustomer', 'btn-success');
-                      target.classList.add('blockCustomer', 'btn-danger');
-                      target.textContent = 'Block';
-                    } else {
-                      console.error(result.message);
-                    }
-                  } catch (error) {
-                    console.error('Error unblocking customer:', error);
-                  }
-                }
-              });
+document.addEventListener('DOMContentLoaded', () => {
+  // Using event delegation to catch clicks on block/unblock buttons
+  document.addEventListener('click', async (event) => {
+    const target = event.target;
+    
+    if (target.matches('.blockCustomer')) {
+      event.preventDefault();
+      const id = target.getAttribute('data-id');
+      
+      // Show confirmation dialog before blocking
+      const result = await Swal.fire({
+        title: 'Block User?',
+        text: 'Are you sure you want to block this user?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, block user',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (result.isConfirmed) {
+        try {
+          const response = await fetch(`/admin/blockCustomer?id=${id}`);
+          const data = await response.json();
+          
+          if (data.success) {
+            // Show success message
+            await Swal.fire({
+              icon: 'success',
+              title: 'User Blocked',
+              text: 'The user has been blocked successfully',
+              confirmButtonColor: '#28a745'
             });
-            </script>
             
+            // Update the button
+            target.classList.remove('blockCustomer', 'btn-danger');
+            target.classList.add('unblockCustomer', 'btn-success');
+            target.textContent = 'Unblock';
+          } else {
+            // Show error message
+            await Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message || 'Failed to block user',
+              confirmButtonColor: '#dc3545'
+            });
+          }
+        } catch (error) {
+          console.error('Error blocking customer:', error);
+          await Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Failed to block user. Please try again.',
+            confirmButtonColor: '#dc3545'
+          });
+        }
+      }
+    } else if (target.matches('.unblockCustomer')) {
+      event.preventDefault();
+      const id = target.getAttribute('data-id');
+      
+      // Show confirmation dialog before unblocking
+      const result = await Swal.fire({
+        title: 'Unblock User?',
+        text: 'Are you sure you want to unblock this user?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, unblock user',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (result.isConfirmed) {
+        try {
+          const response = await fetch(`/admin/unblockCustomer?id=${id}`);
+          const data = await response.json();
+          
+          if (data.success) {
+            // Show success message
+            await Swal.fire({
+              icon: 'success',
+              title: 'User Unblocked',
+              text: 'The user has been unblocked successfully',
+              confirmButtonColor: '#28a745'
+            });
+            
+            // Update the button
+            target.classList.remove('unblockCustomer', 'btn-success');
+            target.classList.add('blockCustomer', 'btn-danger');
+            target.textContent = 'Block';
+          } else {
+            // Show error message
+            await Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: data.message || 'Failed to unblock user',
+              confirmButtonColor: '#dc3545'
+            });
+          }
+        } catch (error) {
+          console.error('Error unblocking customer:', error);
+          await Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Failed to unblock user. Please try again.',
+            confirmButtonColor: '#dc3545'
+          });
+        }
+      }
+    }
+  });
+});
+</script>
+

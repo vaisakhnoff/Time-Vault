@@ -56,13 +56,13 @@ router.get('/unlistCategory',auth.adminIsLogin,categoryController.getUnlistCateg
 router.get('/editCategory',auth.adminIsLogin,categoryController.getEditCategory);
 router.post('/editCategory/:id', auth.admincheckSession, categoryController.editCategory);
 
-router.get('/addProducts',auth.admincheckSession,productController.getProductAddPage);
-router.get('/products',auth.admincheckSession,productController.getProductInfo);
-router.post('/addProducts',auth.admincheckSession,uploads.array('images',4),productController.addProducts)
-router.post('/blockProduct',auth.admincheckSession, productController.blockProduct);
-router.post('/unblockProduct',auth.admincheckSession, productController.unblockProduct);
-router.get('/editProduct/:id', auth.admincheckSession, productController.getEditProduct);
-router.post('/editProduct/:id', auth.admincheckSession, uploads.array('images', 4), productController.editProduct);
+router.get('/addProducts',auth.adminIsLogin,productController.getProductAddPage);
+router.get('/products',auth.adminIsLogin,productController.getProductInfo);
+router.post('/addProducts',auth.adminIsLogin,uploads.array('images',4),productController.addProducts)
+router.post('/blockProduct',auth.adminIsLogin, productController.blockProduct);
+router.post('/unblockProduct',auth.adminIsLogin, productController.unblockProduct);
+router.get('/editProduct/:id', auth.adminIsLogin, productController.getEditProduct);
+router.post('/editProduct/:id', auth.adminIsLogin, uploads.array('images', 4), productController.editProduct);
 router.post('/addProductOffer', productController.addProductOffer);
 router.post('/removeProductOffer', productController.removeProductOffer);
 
@@ -72,9 +72,9 @@ router.get('/editCoupon', auth.adminIsLogin, couponController.getEditCoupon);
 router.post('/editCoupon', auth.adminIsLogin, couponController.editCoupon);
 router.get('/deleteCoupon', auth.adminIsLogin, couponController.deleteCoupon);
 
-router.get('/orders', auth.admincheckSession, orderController.listOrders);
-router.get('/order/:id', auth.admincheckSession, orderController.viewOrderDetails);
-router.post('/update-order-status', auth.admincheckSession, orderController.updateOrderStatus);
+router.get('/orders', auth.adminIsLogin, orderController.listOrders);
+router.get('/order/:id', auth.adminIsLogin, orderController.viewOrderDetails);
+router.post('/update-order-status', auth.adminIsLogin, orderController.updateOrderStatus);
 
 router.get('/return-requests', auth.adminIsLogin, orderController.listReturnRequests);
 router.post('/process-return-request', auth.adminIsLogin, orderController.processReturnRequest);

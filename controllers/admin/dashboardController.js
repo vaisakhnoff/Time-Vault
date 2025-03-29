@@ -42,16 +42,16 @@ const getDashboardData = async (req, res) => {
         if(filter === 'custom' && req.query.from && req.query.to) {
             startDate = new Date(req.query.from);
             endDate = new Date(req.query.to);
-          
             endDate.setHours(23, 59, 59, 999);
         }
 
-       
+        // Update match condition to only include delivered orders
         const stats = await Order.aggregate([
             { 
                 $match: { 
                     createdAt: { $gte: startDate, $lte: endDate },
-                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                    orderStatus: 'Delivered',  // Changed to only show delivered orders
+                    'items.status': 'Delivered' // Also check item status
                 }
             },
             {
@@ -63,19 +63,13 @@ const getDashboardData = async (req, res) => {
             }
         ]);
 
-  
-        const [totalUsers, totalProducts, categories] = await Promise.all([
-            User.countDocuments(),
-            Product.countDocuments(),
-            Category.find({ isListed: true })
-        ]);
-
-        
+        // Update time series data to only include delivered orders
         const timeSeriesData = await Order.aggregate([
             { 
                 $match: { 
                     createdAt: { $gte: startDate, $lte: endDate },
-                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                    orderStatus: 'Delivered',
+                    'items.status': 'Delivered'
                 }
             },
             {
@@ -92,15 +86,21 @@ const getDashboardData = async (req, res) => {
             { $sort: { "_id": 1 } }
         ]);
 
-        
+        // Update category performance to only include delivered orders
         const categoryPerformance = await Order.aggregate([
             { 
                 $match: { 
                     createdAt: { $gte: startDate, $lte: endDate },
-                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                    orderStatus: 'Delivered',
+                    'items.status': 'Delivered'
                 }
             },
             { $unwind: "$items" },
+            { 
+                $match: { 
+                    'items.status': 'Delivered' 
+                }
+            },
             {
                 $lookup: {
                     from: "products",
@@ -129,25 +129,24 @@ const getDashboardData = async (req, res) => {
                         }
                     }
                 }
-            },
-            {
-                $project: {
-                    category: 1,
-                    totalSales: 1,
-                    _id: 0
-                }
             }
         ]);
 
-       
+        // Update brand performance to only include delivered orders
         const brandPerformance = await Order.aggregate([
             { 
                 $match: { 
                     createdAt: { $gte: startDate, $lte: endDate },
-                    orderStatus: { $nin: ['Cancelled', 'Returned'] }
+                    orderStatus: 'Delivered',
+                    'items.status': 'Delivered'
                 }
             },
             { $unwind: "$items" },
+            { 
+                $match: { 
+                    'items.status': 'Delivered' 
+                }
+            },
             {
                 $lookup: {
                     from: "products",
@@ -178,14 +177,13 @@ const getDashboardData = async (req, res) => {
                 }
             },
             { $sort: { totalSales: -1 } },
-            { $limit: 5 },
-            {
-                $project: {
-                    brand: 1,
-                    totalSales: 1,
-                    _id: 0
-                }
-            }
+            { $limit: 5 }
+        ]);
+
+        const [totalUsers, totalProducts, categories] = await Promise.all([
+            User.countDocuments(),
+            Product.countDocuments(),
+            Category.find({ isListed: true })
         ]);
 
         res.json({
@@ -359,84 +357,59 @@ const getBestSellingData = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
     try {
-        // Get overall stats
-        const totalOrders = await Order.countDocuments();
-        const totalSales = await Order.aggregate([
-            {
-                $unwind: "$items"  
+        // Get default filter (weekly)
+        const filter = 'weekly';
+        const { startDate, endDate } = getDateRange(filter);
+
+        // Get stats for delivered orders only
+        const stats = await Order.aggregate([
+            { 
+                $match: { 
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: 'Delivered',
+                    'items.status': 'Delivered'
+                }
             },
             {
                 $group: {
                     _id: null,
-                    total: { $sum: "$totalAmount" },
-                    originalTotal: {
-                        $sum: {
-                            $multiply: [
-                                { $toDouble: "$items.price" }, 
-                                { $toDouble: "$items.quantity" }
-                            ]
-                        }
-                    }
-                }
-            },
-            {
-                $project: {
-                    total: 1,
-                    discountTotal: { $subtract: ["$originalTotal", "$total"] }
+                    totalOrders: { $sum: 1 },
+                    totalRevenue: { $sum: "$totalAmount" }
                 }
             }
         ]);
 
-     
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const todayStats = await Order.aggregate([
-            { $match: { createdAt: { $gte: today } } },
-            {
-                $unwind: "$items"
-            },
-            {
-                $group: {
-                    _id: null,
-                    orders: { $sum: 1 },
-                    revenue: { $sum: "$totalAmount" },
-                    originalTotal: {
-                        $sum: {
-                            $multiply: [
-                                { $toDouble: "$items.price" },
-                                { $toDouble: "$items.quantity" }
-                            ]
-                        }
-                    }
-                }
-            },
-            {
-                $project: {
-                    orders: 1,
-                    revenue: 1,
-                    discount: { $subtract: ["$originalTotal", "$revenue"] }
-                }
-            }
+        const [totalUsers, totalProducts, categories] = await Promise.all([
+            User.countDocuments(),
+            Product.countDocuments(),
+            Category.find({ isListed: true })
         ]);
 
+        // Render with initial data
         res.render('dashboard', {
             stats: {
                 total: {
-                    orders: totalOrders,
-                    sales: totalSales[0]?.total || 0,
-                    discount: totalSales[0]?.discountTotal || 0
+                    orders: stats[0]?.totalOrders || 0,
+                    sales: stats[0]?.totalRevenue || 0
                 },
-                today: {
-                    orders: todayStats[0]?.orders || 0,
-                    sales: todayStats[0]?.revenue || 0,
-                    discount: todayStats[0]?.discount || 0
-                }
-            }
+                totalUsers,
+                totalProducts,
+                totalCategories: categories.length
+            },
+            filter: 'weekly' // Pass default filter
         });
+
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.render('dashboard', { 
+            stats: { 
+                total: { orders: 0, sales: 0 },
+                totalUsers: 0,
+                totalProducts: 0,
+                totalCategories: 0
+            },
+            filter: 'weekly'
+        });
     }
 };
 

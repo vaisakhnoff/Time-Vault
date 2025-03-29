@@ -101,10 +101,9 @@
                         <th>Order ID</th>
                         <th>Date</th>
                         <th>Customer</th>
-                        <th>Items</th>
-                        <th>Original Amount</th>
-                        <th>Coupon Applied</th>
-                        <th>Final Amount</th>
+                        <th>Status</th>
+                        <th>Total Amount</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="salesTableBody">
@@ -113,9 +112,9 @@
                         const actualCouponDiscount = originalAmount - order.totalAmount;
                     %>
                         <tr>
-                            <td><%= order._id %></td>
-                            <td><%= order.createdAt.toLocaleDateString() %></td>
-                            <td><%= order.user.firstName %> <%= order.user.lastName %></td>
+                            <td><%= order.orderId %></td>
+                            <td><%= new Date(order.createdAt).toLocaleDateString() %></td>
+                            <td><%= order.user ? `${order.user.firstName} ${order.user.lastName}` : 'N/A' %></td>
                             <td>
                                 <% order.items.forEach(function(item) { %>
                                     <%= item.productId.productName %> (₹<%= item.price %> × <%= item.quantity %>)<br>

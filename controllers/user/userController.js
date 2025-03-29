@@ -400,7 +400,7 @@ const loadShopPage = async (req, res) => {
         const userData = await User.findOne({ _id: userId });
 
         const page = parseInt(req.query.page) || 1;
-        const limit = 9;
+        const limit = 6
         const skip = (page - 1) * limit;
 
         let query = { isBlocked: false };

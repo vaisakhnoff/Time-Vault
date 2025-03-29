@@ -81,10 +81,10 @@
                         <span class="icon icon-sm rounded-circle bg-primary-light"><i
                                 class="text-primary material-icons md-monetization_on"></i></span>
                         <div class="text">
-                            <h6 class="mb-1 card-title">Revenue</h6>
+                            <h6 class="mb-1 card-title">Revenue (Delivered Orders)</h6>
                             <span id="revenueValue">₹ <%= stats.total.sales.toFixed(2) %></span>
                             <span class="text-sm">
-                                Including Shipping fees
+                                From delivered orders only
                             </span>
                         </div>
                     </article>
@@ -96,10 +96,10 @@
                         <span class="icon icon-sm rounded-circle bg-success-light"><i
                                 class="text-success material-icons md-local_shipping"></i></span>
                         <div class="text">
-                            <h6 class="mb-1 card-title">Orders</h6>
+                            <h6 class="mb-1 card-title">Delivered Orders</h6>
                             <span id="ordersValue"><%= stats.total.orders %> orders</span>
                             <span class="text-sm">
-                                Delivered Orders
+                                Successfully delivered
                             </span>
                         </div>
                     </article>
@@ -141,7 +141,7 @@
             <div class="col-md-6 mb-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <h5 class="card-title mb-3">Sales revenue</h5>
+                        <h5 class="card-title mb-3">Sales Revenue (Delivered Orders)</h5>
                         <div style="height: 300px">
                             <canvas id="salesChart"></canvas>
                         </div>
@@ -152,7 +152,7 @@
             <div class="col-md-6 mb-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <h5 class="card-title mb-3">Orders overview</h5>
+                        <h5 class="card-title mb-3">Delivered Orders Overview</h5>
                         <div style="height: 300px">
                             <canvas id="ordersChart"></canvas>
                         </div>
@@ -166,7 +166,7 @@
             <div class="col-md-6 mb-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <h5 class="card-title mb-3">Category Performance</h5>
+                        <h5 class="card-title mb-3">Category Performance (Delivered Orders)</h5>
                         <div style="height: 300px">
                             <canvas id="categoryChart"></canvas>
                         </div>
@@ -177,7 +177,7 @@
             <div class="col-md-6 mb-3">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <h5 class="card-title mb-3">Brand Performance</h5>
+                        <h5 class="card-title mb-3">Brand Performance (Delivered Orders)</h5>
                         <div style="height: 300px">
                             <canvas id="brandChart"></canvas>
                         </div>
@@ -239,6 +239,14 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
+        // Add this at the beginning of your script
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set initial filter value
+            document.getElementById('globalFilter').value = 'weekly';
+            // Load initial data
+            updateAllCharts();
+        });
+
         let salesChart, ordersChart, categoryChart, brandChart;
 
         function updateAllCharts() {

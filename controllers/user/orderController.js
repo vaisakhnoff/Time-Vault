@@ -6,6 +6,7 @@ const Razorpay = require('razorpay');
 const Cart = require('../../models/cartSchema');
 const crypto = require('crypto');
 const WalletTransaction = require('../../models/walletSchema');  // add this line
+const { v4: uuidv4 } = require('uuid'); // Add this line
 
 const instance = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,         
@@ -48,55 +49,73 @@ function calculateDisplayStatus(items) {
     return 'Mixed Status';
 }
 
-const viewOrderDetails = async (req, res) => {
-  try {
-    const orderId = req.params.id;
-    const userId = req.session.user;
-
-    const order = await Order.findOne({ _id: orderId, user: userId })
-      .populate('items.productId')
-      .lean();
-
-    if (!order) {
-      return res.redirect('/orders');
-    }
-    order.statusUpdates = order.statusUpdates || {};
-   
-    if (order.orderStatus === 'Delivered') {
+// Add this helper function
+function getTimelineSteps(status) {
+    // Base timeline steps
+    const baseSteps = ['Pending', 'Shipped', 'Out for Delivery', 'Delivered'];
     
-      const pendingItems = order.items.filter(item => !item.status || item.status === 'Pending');
+    // Special case statuses
+    const specialStatuses = {
+        'Cancelled': ['Pending', 'Cancelled'],
+        'Return Requested': ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Return Requested'],
+        'Returned': ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Return Requested', 'Returned'],
+        'Return Declined': ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Return Requested', 'Return Declined']
+    };
 
-      order.showGlobalReturn = order.items.length > 1 && pendingItems.length === order.items.length;
+    // If status is special, use its specific timeline
+    return specialStatuses[status] || baseSteps;
+}
 
-     
-      order.showIndividualReturn = !order.showGlobalReturn && pendingItems.length > 0;
-    } else {
-      order.showGlobalReturn = false;
-      order.showIndividualReturn = false;
+const viewOrderDetails = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        const userId = req.session.user;
+
+        const order = await Order.findOne({ 
+            orderId: orderId,  // Changed from _id to orderId
+            user: userId 
+        }).populate('items.productId').lean();
+
+        if (!order) {
+            return res.redirect('/orders');
+        }
+        order.statusUpdates = order.statusUpdates || {};
+       
+        if (order.orderStatus === 'Delivered') {
+        
+            const pendingItems = order.items.filter(item => !item.status || item.status === 'Pending');
+
+            order.showGlobalReturn = order.items.length > 1 && pendingItems.length === order.items.length;
+
+         
+            order.showIndividualReturn = !order.showGlobalReturn && pendingItems.length > 0;
+        } else {
+            order.showGlobalReturn = false;
+            order.showIndividualReturn = false;
+        }
+
+        const addressDoc = await Address.findOne({ userId: userId }).lean();
+        let selectedAddress = null;
+        if (addressDoc && addressDoc.address && order.address) {
+            selectedAddress = addressDoc.address.find(addr =>
+                addr._id.toString() === order.address.toString()
+            );
+        }
+
+        order.computedDisplayStatus = calculateDisplayStatus(order.items);
+
+        res.render('orderDetails', {
+            user: req.session.user,
+            order: order,
+            address: selectedAddress,
+            getTimelineSteps: getTimelineSteps // Pass the function to the view
+        });
+    } catch (error) {
+        console.error('Error viewing order details:', error);
+        res.redirect('/pageNotFound');
     }
-
-    const addressDoc = await Address.findOne({ userId: userId }).lean();
-    let selectedAddress = null;
-    if (addressDoc && addressDoc.address && order.address) {
-      selectedAddress = addressDoc.address.find(addr =>
-        addr._id.toString() === order.address.toString()
-      );
-    }
-
-    order.computedDisplayStatus = calculateDisplayStatus(order.items);
-
-    res.render('orderDetails', {
-      user: req.session.user,
-      order: order,
-      address: selectedAddress,
-    });
-  } catch (error) {
-    console.error('Error viewing order details:', error);
-    res.redirect('/pageNotFound');
-  }
 };
 
-// In global cancellation (cancelOrder):
 const cancelOrder = async (req, res) => {
   try {
     const orderId = req.body.orderId;
@@ -203,32 +222,6 @@ const submitReview = async (req, res) => {
   }
 };
 
-// const requestReturnOrder = async (req, res) => {
-//   try {
-//     const { orderId, reason } = req.body;
-//     const order = await Order.findById(orderId);
-//     if (!order) {
-//       return res.json({ success: false, message: 'Order not found' });
-//     }
-    
-//     if (order.orderStatus !== 'Delivered') {
-//       return res.json({ success: false, message: 'Only delivered orders can be returned' });
-//     }
-
-//     order.orderStatus = 'Return Requested';
-//     order.returnRequest = {
-//       reason: reason || '',
-//       status: 'Requested',
-//       requestedAt: new Date()
-//     };
-//     await order.save();
-//     return res.json({ success: true, message: 'Return request submitted. Awaiting admin confirmation.' });
-//   } catch (error) {
-//     console.error('Error processing return request:', error);
-//     return res.json({ success: false, message: 'Error processing return request' });
-//   }
-// };
-
 const createOnlineOrder = async (req, res) => {
   try {
     const userId = req.session.user;
@@ -264,55 +257,49 @@ const createOnlineOrder = async (req, res) => {
 };
 
 const onlinePaymentSuccess = async (req, res) => {
-  try {
-      const userId = req.session.user;
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, addressId } = req.body;
+    try {
+        const userId = req.session.user;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, addressId } = req.body;
 
+        const cart = await Cart.findOne({ userId }).populate('items.productId');
+        if (!cart || cart.items.length === 0) {
+            return res.status(400).json({ error: 'Cart is empty' });
+        }
 
-      const cart = await Cart.findOne({ userId }).populate('items.productId');
-      if (!cart || cart.items.length === 0) {
-          return res.status(400).json({ error: 'Cart is empty' });
-      }
+        const order = new Order({
+            orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`, // Generate UUID-based order ID
+            user: userId,
+            items: cart.items.map(item => ({
+                productId: item.productId._id,
+                quantity: item.quantity,
+                price: item.productId.salePrice,
+                totalPrice: item.productId.salePrice * item.quantity
+            })),
+            address: addressId,
+            paymentMethod: 'Online',
+            paymentStatus: 'Completed',
+            totalAmount: cart.items.reduce((total, item) => {
+                return total + item.productId.salePrice * item.quantity;
+            }, 0) - (req.session.coupon ? req.session.coupon.offerPrice : 0),
+            orderStatus: 'Pending'
+        });
+        await order.save();
 
-      const totalAmount = cart.items.reduce((total, item) => {
-          return total + item.productId.salePrice * item.quantity;
-      }, 0);
-      
-      let couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
-      let discountedTotal = totalAmount - couponDiscount;
-      if (discountedTotal < 0) discountedTotal = 0;
+        for (const item of cart.items) {
+            await Product.findByIdAndUpdate(item.productId._id, { $inc: { quantity: -item.quantity } });
+        }
 
-      const order = new Order({
-          user: userId,
-          items: cart.items.map(item => ({
-              productId: item.productId._id,
-              quantity: item.quantity,
-              price: item.productId.salePrice,
-              totalPrice: item.productId.salePrice * item.quantity
-          })),
-          address: addressId,
-          paymentMethod: 'Online',
-          paymentStatus: 'Completed',
-          totalAmount: discountedTotal,
-          orderStatus: 'Pending'
-      });
-      await order.save();
+        cart.items = [];
+        await cart.save();
+        req.session.coupon = undefined;
 
-      for (const item of cart.items) {
-          await Product.findByIdAndUpdate(item.productId._id, { $inc: { quantity: -item.quantity } });
-      }
+        req.session.lastOrderId = order._id;
 
-      cart.items = [];
-      await cart.save();
-      req.session.coupon = undefined;
-
-      req.session.lastOrderId = order._id;
-
-      return res.json({ success: true });
-  } catch (error) {
-      console.error('Error finalizing online payment:', error);
-      return res.status(500).json({ success: false, error: 'Unable to finalize order' });
-  }
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Error finalizing online payment:', error);
+        return res.status(500).json({ success: false, error: 'Unable to finalize order' });
+    }
 };
 
 const walletPaymentOrder = async (req, res) => {
@@ -346,6 +333,7 @@ const walletPaymentOrder = async (req, res) => {
     
     // Create order with payment method set to "Wallet"
     const order = new Order({
+      orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`,
       user: userId,
       items: cart.items.map(item => ({
         productId: item.productId._id,
@@ -389,7 +377,6 @@ const walletPaymentOrder = async (req, res) => {
   }
 };
 
-// In individual cancellation (cancelOrderItem):
 const cancelOrderItem = async (req, res) => {
     try {
         const { orderId, itemId, reason } = req.body;
@@ -462,30 +449,66 @@ const returnOrderItem = async (req, res) => {
     try {
         const { orderId, itemId, reason } = req.body;
         const userId = req.session.user;
-        const order = await Order.findOne({ _id: orderId, user: userId });
+
+        // Find order using _id since that's what we're passing from the client
+        const order = await Order.findOne({ 
+            _id: orderId,  // Changed from orderId to _id
+            user: userId 
+        });
+
         if (!order) {
-            return res.status(404).json({ success: false, message: 'Order not found' });
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Order not found' 
+            });
         }
+
+        // Find the specific item
         const item = order.items.find(i => i._id.toString() === itemId);
+        
         if (!item) {
-            return res.status(404).json({ success: false, message: 'Order item not found' });
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Order item not found' 
+            });
         }
-        // Check the individual item status instead of the global order status
+
         if (item.status !== 'Delivered') {
-            return res.status(400).json({ success: false, message: 'Only delivered items can be returned' });
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Only delivered items can be returned' 
+            });
         }
-        // Mark item as return requested and save the reason
+
+        // Update item status
         item.status = 'Return Requested';
-        item.returnReason = reason || '';
+        item.returnReason = reason;
+        
+        // Update order status if needed
+        order.orderStatus = calculateOrderStatus(order.items);
+
+        // Add timestamp
+        if (!order.statusUpdates) {
+            order.statusUpdates = {};
+        }
+        order.statusUpdates[`item-${itemId}-Return Requested`] = new Date();
+
         await order.save();
-        return res.json({ success: true, message: 'Return request for item submitted. Awaiting admin confirmation.' });
+
+        return res.json({ 
+            success: true, 
+            message: 'Return request submitted successfully' 
+        });
+
     } catch (error) {
-        console.error('Error processing return request for item:', error);
-        return res.status(500).json({ success: false, message: 'Error processing item return request' });
+        console.error('Error processing return request:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Error processing return request' 
+        });
     }
 };
 
-// Add this function to your existing orderController.js
 const loadReviewPage = async (req, res) => {
     try {
         const { orderId, productId } = req.query;

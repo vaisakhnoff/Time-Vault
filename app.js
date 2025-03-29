@@ -36,13 +36,18 @@ app.set("view engine","ejs");
 app.set("views",[path.join(__dirname,'views/user'),path.join(__dirname,'views/admin')]);
 app.use(express.static(path.join(__dirname,'public')));
 
+app.use('/',userRouter)
+app.use('/admin',adminRouter)
+
+app.use((req, res, next) => {
+    res.status(404).render('page-404', { error: 'Page not found' });
+});
 
 app.listen(process.env.PORT,()=>{
     console.log("server is running");   
     
 });
 
-app.use('/',userRouter)
-app.use('/admin',adminRouter)
+
 
 module.exports = app;

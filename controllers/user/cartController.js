@@ -7,6 +7,7 @@ const Order = require("../../models/orderSchema.js");
 const Wishlist = require("../../models/wishlistSchema");
 const Coupon = require("../../models/couponSchema"); // require coupon model
 const crypto = require("crypto");
+const { v4: uuidv4 } = require("uuid");
 const user = require("../../models/userschema");
 const cartPage = async (req, res) => {
   try {
@@ -223,6 +224,7 @@ const placeOrder = async (req, res) => {
     }
 
     const order = new Order({
+      orderId: `ORD-${uuidv4().substring(0, 8).toUpperCase()}`,
       user: userId,
       items: cart.items.map((item) => ({
         productId: item.productId._id,
@@ -263,22 +265,22 @@ const orderSuccess = async (req, res) => {
 
     const latestOrder = await Order.findOne({ user: userId })
       .sort({ createdAt: -1 })
-      .populate("items.productId")
-      .populate("address")
+      .populate('items.productId')
+      .populate('address')
       .lean();
 
     if (!latestOrder) {
-      return res.redirect("/cartPage");
+      return res.redirect('/cartPage');
     }
 
-    res.render("orderSuccess", {
+    res.render('orderSuccess', {
       user: userData,
       order: latestOrder,
-      orderId: latestOrder._id,
+      orderId: latestOrder.orderId  // Changed from _id to orderId
     });
   } catch (error) {
-    console.error("Error displaying order success:", error);
-    return res.redirect("/pageNotFound");
+    console.error('Error displaying order success:', error);
+    return res.redirect('/pageNotFound');
   }
 };
 

@@ -113,6 +113,112 @@
     text-align: left;
   }
 }
+
+.item-timeline {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+
+.item-timeline:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.timeline {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  margin: 20px 0;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background-color: #e0e0e0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.timeline-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+.timeline-item.active .timeline-icon {
+  background-color: #28a745;
+  color: white;
+}
+
+.timeline-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  border: 2px solid #e0e0e0;
+}
+
+.timeline-content {
+  text-align: center;
+}
+
+.timeline-content h5 {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.timeline-content p {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin: 0;
+}
+
+/* Add this to your existing styles */
+.swal2-popup {
+    padding: 1.5rem;
+}
+
+.swal2-popup .swal2-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.swal2-popup #return-reason {
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    font-size: 1rem;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.swal2-popup .swal2-actions {
+    margin-top: 1.5rem;
+}
+
+.swal2-popup .swal2-confirm,
+.swal2-popup .swal2-cancel {
+    padding: 0.5rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 0.25rem;
+}
+
+swal2-popup label {
+    text-align: left;
+    display: block;
+    font-weight: 500;
+    color: #333;
+}
 </style>
 <!-- Spacer to create gap between header and contents -->
 <div style="height: 100px;"></div>
@@ -121,7 +227,7 @@
   <div class="card">
     <div class="card-header">
       <div class="d-flex justify-content-between align-items-center">
-        <h3>Order Details #<%= order._id %></h3>
+        <h3>Order Details #<%= order.orderId %></h3>
       </div>
     </div>
 
@@ -129,45 +235,92 @@
       <!-- Order Status Timeline -->
       <div class="order-timeline mb-4">
         <div class="timeline-container">
-          <!-- Overall Order Status -->
-          <div class="overall-status mb-3">
-            <h5>Order Status: 
-              <span class="badge bg-<%= 
-                order.computedDisplayStatus === 'Cancelled' ? 'danger' :
-                order.computedDisplayStatus === 'Delivered' ? 'success' :
-                order.computedDisplayStatus === 'Mixed Status' ? 'info' :
-                'warning' %>">
-                <%= order.computedDisplayStatus %>
-              </span>
-            </h5>
-          </div>
-
-          <!-- Individual Item Statuses -->
-          <div class="items-timeline">
-            <% order.items.forEach((item, index) => { %>
-              <div class="item-status mb-3">
-                <div class="d-flex justify-content-between align-items-center">
-                  <span><%= item.productId.productName %></span>
-                  <span class="badge bg-<%= 
-                    item.status === 'Cancelled' ? 'danger' :
-                    item.status === 'Delivered' ? 'success' :
-                    'warning' %>">
-                    <%= item.status %>
-                  </span>
+          <% 
+                     const allItemsSameStatus = order.items.every(item => item.status === order.items[0].status);
+            const currentStatus = order.items[0].status;
+            
+            let timelineSteps;
+            if (['Return Requested', 'Returned', 'Return Declined', 'Cancelled'].includes(currentStatus)) {
+              // Only show the special status
+              timelineSteps = [currentStatus];
+            } else {
+              timelineSteps = getTimelineSteps(currentStatus);
+            }
+          %>
+          <% if (allItemsSameStatus) { %>
+            <div class="timeline">
+              <% timelineSteps.forEach((step, index) => { %>
+                <div class="timeline-item <%= index <= timelineSteps.indexOf(currentStatus) ? 'active' : '' %>">
+                  <div class="timeline-icon">
+                    <i class="fas fa-<%= 
+                      step === 'Pending' ? 'clock' :
+                      step === 'Shipped' ? 'truck' :
+                      step === 'Out for Delivery' ? 'shipping-fast' :
+                      step === 'Delivered' ? 'check' :
+                      step === 'Cancelled' ? 'times' :
+                      step === 'Return Requested' ? 'undo' :
+                      step === 'Returned' ? 'box' :
+                      step === 'Return Declined' ? 'ban' :
+                      'circle' %>">
+                    </i>
+                  </div>
+                  <div class="timeline-content">
+                    <h5><%= step %></h5>
+                    <% if (order.statusUpdates && order.statusUpdates[step]) { %>
+                      <p><%= new Date(order.statusUpdates[step]).toLocaleString() %></p>
+                    <% } %>
+                  </div>
                 </div>
-                <% if (order.statusUpdates && order.statusUpdates[`item-${item._id}-Return Requested`]) { %>
-                  <!-- <small class="text-muted d-block">
-                    Return requested on: <%= new Date(order.statusUpdates[`item-${item._id}-Return Requested`])
-                      .toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      }) %>
-                  </small> -->
-                <% } %>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <% order.items.forEach((item) => { %>
+              <div class="item-timeline mb-4">
+                <h6 class="mb-3"><%= item.productId.productName %></h6>
+                <div class="timeline">
+                  <%
+                    let itemSteps;
+                    if (['Return Requested', 'Returned', 'Return Declined', 'Cancelled'].includes(item.status)) {
+                      itemSteps = [item.status];
+                    } else {
+                      itemSteps = getTimelineSteps(item.status);
+                    }
+                    const itemCurrentStep = itemSteps.indexOf(item.status);
+                  %>
+                  <% itemSteps.forEach((step, index) => { %>
+                    <div class="timeline-item <%= index <= itemCurrentStep ? 'active' : '' %>">
+                      <div class="timeline-icon">
+                        <i class="fas fa-<%= 
+                          step === 'Pending' ? 'clock' :
+                          step === 'Shipped' ? 'truck' :
+                          step === 'Out for Delivery' ? 'shipping-fast' :
+                          step === 'Delivered' ? 'check' :
+                          step === 'Cancelled' ? 'times' :
+                          step === 'Return Requested' ? 'undo' :
+                          step === 'Returned' ? 'box' :
+                          step === 'Return Declined' ? 'ban' :
+                          'circle' %>"
+                          style="color: <%= 
+                            step === 'Cancelled' ? '#dc3545' :
+                            step === 'Return Requested' ? '#ffc107' :
+                            step === 'Returned' ? '#17a2b8' :
+                            step === 'Return Declined' ? '#dc3545' :
+                            index <= itemCurrentStep ? '#28a745' : '#6c757d'
+                          %>">
+                        </i>
+                      </div>
+                      <div class="timeline-content">
+                        <h5><%= step %></h5>
+                        <% if (order.statusUpdates && order.statusUpdates[`item-${item._id}-${step}`]) { %>
+                          <p><%= new Date(order.statusUpdates[`item-${item._id}-${step}`]).toLocaleString() %></p>
+                        <% } %>
+                      </div>
+                    </div>
+                  <% }); %>
+                </div>
               </div>
             <% }); %>
-          </div>
+          <% } %>
         </div>
       </div>
 
@@ -369,7 +522,11 @@
         fetch('/order/cancelItem', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, itemId, reason: "Cancelled by user" })
+          body: JSON.stringify({ 
+            orderId: orderId,  // This will now be the UUID
+            itemId: itemId, 
+            reason: "Cancelled by user" 
+          })
         })
         .then(res => res.json())
         .then(data => {
@@ -400,36 +557,71 @@
 
   function returnOrderItem(orderId, itemId) {
     Swal.fire({
-      title: 'Return Item',
-      text: 'Please provide a reason for return:',
-      input: 'textarea',
-      inputAttributes: { required: true },
-      showCancelButton: true,
-      confirmButtonText: 'Submit'
-    }).then(result => {
-      if (result.isConfirmed) {
-        fetch('/order/returnItem', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, itemId, reason: result.value })
-        })
-        .then(res => res.json())
-        .then(data => {
-          Swal.fire({
-            icon: data.success ? 'success' : 'error',
-            title: data.success ? 'Success' : 'Error',
-            text: data.message
-          }).then(() => {
-            if (data.success) {
-              window.location.reload();
+        title: 'Return Request',
+        html: `
+            <div class="form-group">
+                <label for="return-reason" class="mb-2">Please provide a reason for return:</label>
+                <textarea id="return-reason" class="form-control" 
+                    rows="4" placeholder="Enter your reason here..."
+                    style="resize: none; margin-top: 10px;"></textarea>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Return Request',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#dc3545',
+        width: '32em',
+        preConfirm: () => {
+            const reason = document.getElementById('return-reason').value;
+            if (!reason.trim()) {
+                Swal.showValidationMessage('Please enter a return reason');
+                return false;
             }
-          });
-        })
-        .catch(error => {
-          console.error(error);
-          Swal.fire('Error', 'Failed to process return request', 'error');
-        });
-      }
+            return reason;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('/order/returnItem', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    orderId: orderId,
+                    itemId: itemId,
+                    reason: result.value
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.json();
+            })
+            .then(data => {
+                Swal.fire({
+                    icon: data.success ? 'success' : 'error',
+                    title: data.success ? 'Return Request Submitted' : 'Error',
+                    text: data.message,
+                    confirmButtonColor: '#28a745'
+                }).then(() => {
+                    if (data.success) {
+                        window.location.reload();
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Return Request Failed',
+                    text: error.message || 'Unable to process your return request. Please try again.',
+                    confirmButtonColor: '#dc3545'
+                });
+            });
+        }
     });
   }
 
