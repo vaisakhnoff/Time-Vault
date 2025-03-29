@@ -20,6 +20,9 @@ const orderSchema = new mongoose.Schema({
       productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
       quantity: Number,
       price: Number,
+      originalPrice: Number, // Price before any discounts
+      discountedPrice: Number, // Price after coupon discount
+      couponShare: Number, // This item's share of the coupon discount
       status: { 
         type: String, 
         enum: ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled', 'Returned', 'Return Requested','Return Declined'],
@@ -30,15 +33,6 @@ const orderSchema = new mongoose.Schema({
       reviewed: Boolean
     }
   ],
-    // address: {
-    //   name: String,
-    //   city: String,
-    //   landMark: String,
-    //   state: String,
-    //   pincode: String,
-    //   phone_no: String,
-    //   altPhone_no: String
-    // }
     address: {
       type: Schema.Types.ObjectId,
       ref: 'address',
@@ -74,6 +68,21 @@ const orderSchema = new mongoose.Schema({
       status: { type: String, enum: ['Requested', 'Approved', 'Declined'], default: 'Requested' },
       requestedAt: { type: Date, default: Date.now }
     },   
+    couponApplied: {
+      type: Boolean,
+      default: false
+    },
+    couponCode: {
+      type: String
+    },
+    couponDiscount: {
+      type: Number,
+      default: 0
+    },
+    originalTotalAmount: {
+      type: Number,
+      required: true
+    },
     totalAmount: {
       type: Number,
       required: true

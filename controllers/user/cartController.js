@@ -184,78 +184,90 @@ const checkoutPage = async (req, res) => {
 };
 
 const placeOrder = async (req, res) => {
-  try {
-    const userId = req.session.user;
-    const { addressId, paymentMethod } = req.body;
+    try {
+        const userId = req.session.user;
+        const { addressId, paymentMethod } = req.body;
 
-    // Only allow COD through this endpoint
-    if (paymentMethod !== "COD") {
-      return res.status(400).json({ message: "Invalid payment method" });
+        // Fetch cart with populated product details
+        const cart = await Cart.findOne({ userId }).populate('items.productId');
+        if (!cart || cart.items.length === 0) {
+            return res.status(400).json({ error: 'Cart is empty' });
+        }
+
+        // Calculate original total before any discounts
+        const originalTotalAmount = cart.items.reduce((total, item) => {
+            return total + (item.productId.salePrice * item.quantity);
+        }, 0);
+
+        // Get coupon discount if applied
+        const couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
+        
+        // Calculate final total after coupon
+        const finalAmount = originalTotalAmount - couponDiscount;
+
+        // Create order items with proper price tracking
+        const orderItems = cart.items.map(item => {
+            const itemTotal = item.productId.salePrice * item.quantity;
+            // Calculate item's proportional share of coupon discount if coupon exists
+            const itemProportion = itemTotal / originalTotalAmount;
+            const itemCouponShare = couponDiscount ? (couponDiscount * itemProportion) : 0;
+
+            return {
+                productId: item.productId._id,
+                quantity: item.quantity,
+                price: item.productId.salePrice,
+                originalPrice: item.productId.salePrice,
+                discountedPrice: item.productId.salePrice - (itemCouponShare / item.quantity),
+                couponShare: itemCouponShare,
+                totalPrice: itemTotal - itemCouponShare,
+                status: 'Pending'
+            };
+        });
+
+        // Create new order
+        const order = new Order({
+            orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`,
+            user: userId,
+            items: orderItems,
+            address: addressId,
+            paymentMethod: paymentMethod,
+            paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Completed',
+            originalTotalAmount: originalTotalAmount, // Add this required field
+            totalAmount: finalAmount,
+            orderStatus: 'Pending',
+            couponApplied: !!req.session.coupon,
+            couponCode: req.session.coupon?.code || null,
+            couponDiscount: couponDiscount
+        });
+
+        await order.save();
+
+        // Update product quantities
+        for (const item of cart.items) {
+            await Product.findByIdAndUpdate(
+                item.productId._id,
+                { $inc: { quantity: -item.quantity } }
+            );
+        }
+
+        // Clear cart and coupon from session
+        cart.items = [];
+        await cart.save();
+        req.session.coupon = undefined;
+
+        return res.json({
+            success: true,
+            orderId: order.orderId,
+            message: 'Order placed successfully'
+        });
+
+    } catch (error) {
+        console.error('Error placing order:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Unable to place order'
+        });
     }
-
-    const cart = await Cart.findOne({ userId }).populate("items.productId");
-    if (!cart || !cart.items.length) {
-      // When checkout page is empty, redirect to home page
-      return res.redirect("/");
-    }
-
-    const addressDoc = await Address.findOne({ "address._id": addressId });
-    if (!addressDoc) {
-      return res.status(400).json({ message: "Invalid address" });
-    }
-    const selectedAddress = addressDoc.address.find(
-      (addr) => addr._id.toString() === addressId
-    );
-
-    let totalAmount = cart.items.reduce((total, item) => {
-      return total + item.productId.salePrice * item.quantity;
-    }, 0);
-
-    let couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
-    let discountedTotal = totalAmount - couponDiscount;
-    if (discountedTotal < 0) discountedTotal = 0;
-
-    // Updated COD limit check: now orders above ₹5000 are not allowed
-    if (discountedTotal > 5000) {
-      return res.status(400).json({
-        success: false,
-        message: "COD is only available for orders up to ₹5,000"
-      });
-    }
-
-    const order = new Order({
-      orderId: `ORD-${uuidv4().substring(0, 8).toUpperCase()}`,
-      user: userId,
-      items: cart.items.map((item) => ({
-        productId: item.productId._id,
-        quantity: item.quantity,
-        price: item.productId.salePrice,
-        totalPrice: item.productId.salePrice * item.quantity,
-      })),
-      address: selectedAddress,
-      paymentMethod,
-      paymentStatus: "Pending",
-      totalAmount: discountedTotal,
-      orderStatus: "Pending",
-    });
-
-    await order.save();
-
-    for (const item of cart.items) {
-      await Product.findByIdAndUpdate(item.productId._id, {
-        $inc: { quantity: -item.quantity },
-      });
-    }
-
-    cart.items = [];
-    await cart.save();
-
-    req.session.coupon = undefined;
-    return res.redirect("/orderSuccess");
-  } catch (error) {
-    console.error("Error placing order:", error);
-    return res.redirect("/pageNotFound");
-  }
 };
 
 const orderSuccess = async (req, res) => {

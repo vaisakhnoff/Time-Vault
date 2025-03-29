@@ -84,6 +84,7 @@ router.get('/dashboard', auth.adminIsLogin, dashboardController.getDashboardStat
 router.get('/download-report', auth.adminIsLogin, dashboardController.downloadSalesReport);
 router.get('/dashboard-data', auth.adminIsLogin, dashboardController.getDashboardData);
 router.get('/best-selling', auth.adminIsLogin, dashboardController.getBestSellingData);
+router.get('/dashboard-canceled-data', dashboardController.getCanceledAndReturnedData);
 
 router.get('/brands', auth.adminIsLogin, brandController.getBrands);
 router.get('/add-brand', auth.adminIsLogin, brandController.getAddBrandPage);

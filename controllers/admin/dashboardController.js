@@ -718,10 +718,83 @@ const downloadSalesReport = async (req, res) => {
     }
 };
 
+const getCanceledAndReturnedData = async (req, res) => {
+    try {
+        const filter = req.query.filter || 'weekly';
+        let { startDate, endDate } = getDateRange(filter);
+
+        if(filter === 'custom' && req.query.from && req.query.to) {
+            startDate = new Date(req.query.from);
+            endDate = new Date(req.query.to);
+            endDate.setHours(23,59,59,999);
+        }
+
+        // Aggregate canceled orders by date (formatted as YYYY-MM-DD)
+        const canceledAgg = await Order.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: 'Cancelled' // update status here if needed
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Aggregate returned orders by date
+        const returnedAgg = await Order.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: startDate, $lte: endDate },
+                    orderStatus: 'Returned'
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Merge labels from both aggregations
+        const labelsSet = new Set();
+        canceledAgg.forEach(doc => labelsSet.add(doc._id));
+        returnedAgg.forEach(doc => labelsSet.add(doc._id));
+        const labels = Array.from(labelsSet).sort();
+
+        const canceledData = labels.map(label => {
+            const found = canceledAgg.find(doc => doc._id === label);
+            return found ? found.count : 0;
+        });
+
+        const returnedData = labels.map(label => {
+            const found = returnedAgg.find(doc => doc._id === label);
+            return found ? found.count : 0;
+        });
+
+        return res.json({
+            labels,
+            canceledData,
+            returnedData
+        });
+    } catch (error) {
+        console.error("Error fetching canceled/returned data:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getDashboardStats,
     getDashboardData,   
     getBestSellingData, 
     generateSalesReport,
-    downloadSalesReport
+    downloadSalesReport,
+    getCanceledAndReturnedData
 };

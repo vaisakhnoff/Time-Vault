@@ -231,8 +231,20 @@
                 </div>
             </div>
         </div>
-        
-      
+
+        <!-- Add new row for Canceled & Returned Orders chart -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Canceled & Returned Orders</h5>
+                        <div style="height: 300px">
+                            <canvas id="canceledChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
     <%- include("../partials/admin/footer") %>
 
@@ -247,7 +259,7 @@
             updateAllCharts();
         });
 
-        let salesChart, ordersChart, categoryChart, brandChart;
+        let salesChart, ordersChart, categoryChart, brandChart, canceledChart;
 
         function updateAllCharts() {
             const filter = document.getElementById("globalFilter").value;
@@ -311,6 +323,25 @@
                 updateOrdersChart(timeLabels, orderData, filter);
                 updateCategoryChart(categoryLabels, categoryValues);
                 updateBrandChart(brandLabels, brandValues);
+
+                // Fetch canceled and returned orders data and update new chart
+                fetch(`/admin/dashboard-canceled-data${queryParams}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    // Expected data format:
+                    // { labels: [...], canceledData: [...], returnedData: [...] }
+                    updateCanceledChart(data.labels, data.canceledData, data.returnedData);
+                })
+                .catch(error => {
+                    console.error("Error fetching canceled/returned data:", error);
+                });
 
                 // Remove loading state
                 document.querySelectorAll(".card").forEach(card => {
@@ -600,5 +631,42 @@
             });
         }
 
+        function updateCanceledChart(labels, canceledData, returnedData) {
+            if (canceledChart) canceledChart.destroy();
+            const ctx = document.getElementById("canceledChart").getContext("2d");
+
+            canceledChart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: "Canceled Orders",
+                            data: canceledData,
+                            backgroundColor: "rgba(255, 99, 132, 0.5)",
+                            borderColor: "rgba(255, 99, 132, 1)",
+                            borderWidth: 1
+                        },
+                        {
+                            label: "Returned Orders",
+                            data: returnedData,
+                            backgroundColor: "rgba(255, 206, 86, 0.5)",
+                            borderColor: "rgba(255, 206, 86, 1)",
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    }
+                }
+            });
+        }
     
     </script>

@@ -266,33 +266,67 @@ const onlinePaymentSuccess = async (req, res) => {
             return res.status(400).json({ error: 'Cart is empty' });
         }
 
-        const order = new Order({
-            orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`, // Generate UUID-based order ID
-            user: userId,
-            items: cart.items.map(item => ({
+        // Calculate original total before any discounts
+        const originalTotalAmount = cart.items.reduce((total, item) => {
+            return total + item.productId.salePrice * item.quantity;
+        }, 0);
+
+        // Get coupon discount if applied
+        const couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
+        
+        // Calculate final total after coupon discount
+        const finalAmount = originalTotalAmount - couponDiscount;
+
+        // Create order items with proper price tracking
+        const orderItems = cart.items.map(item => {
+            const itemTotal = item.productId.salePrice * item.quantity;
+            // Calculate item's proportional share of coupon discount if coupon exists
+            const itemProportion = itemTotal / originalTotalAmount;
+            const itemCouponShare = couponDiscount ? (couponDiscount * itemProportion) : 0;
+
+            return {
                 productId: item.productId._id,
                 quantity: item.quantity,
                 price: item.productId.salePrice,
-                totalPrice: item.productId.salePrice * item.quantity
-            })),
+                originalPrice: item.productId.salePrice,
+                discountedPrice: item.productId.salePrice - (itemCouponShare / item.quantity),
+                couponShare: itemCouponShare,
+                totalPrice: itemTotal - itemCouponShare,
+                status: 'Pending'
+            };
+        });
+
+        const order = new Order({
+            orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`,
+            user: userId,
+            items: orderItems,
             address: addressId,
             paymentMethod: 'Online',
             paymentStatus: 'Completed',
-            totalAmount: cart.items.reduce((total, item) => {
-                return total + item.productId.salePrice * item.quantity;
-            }, 0) - (req.session.coupon ? req.session.coupon.offerPrice : 0),
-            orderStatus: 'Pending'
+            originalTotalAmount: originalTotalAmount, // Add this field
+            totalAmount: finalAmount,
+            orderStatus: 'Pending',
+            couponApplied: !!req.session.coupon,
+            couponCode: req.session.coupon?.code || null,
+            couponDiscount: couponDiscount
         });
+
         await order.save();
 
+        // Update product quantities
         for (const item of cart.items) {
-            await Product.findByIdAndUpdate(item.productId._id, { $inc: { quantity: -item.quantity } });
+            await Product.findByIdAndUpdate(
+                item.productId._id, 
+                { $inc: { quantity: -item.quantity } }
+            );
         }
 
+        // Clear cart and coupon
         cart.items = [];
         await cart.save();
         req.session.coupon = undefined;
 
+        // Store order ID in session
         req.session.lastOrderId = order._id;
 
         return res.json({ success: true });
@@ -313,67 +347,97 @@ const walletPaymentOrder = async (req, res) => {
       return res.status(400).json({ error: 'Cart is empty' });
     }
     
-    let totalAmount = cart.items.reduce((total, item) => {
+    // Calculate original total before any discounts
+    const originalTotalAmount = cart.items.reduce((total, item) => {
       return total + item.productId.salePrice * item.quantity;
     }, 0);
     
-    let couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
-    let discountedTotal = totalAmount - couponDiscount;
-    if (discountedTotal < 0) discountedTotal = 0;
+    // Get coupon discount if applied
+    const couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
+    
+    // Calculate final total after coupon
+    const finalAmount = originalTotalAmount - couponDiscount;
     
     // Fetch user to check wallet balance
     const user = await User.findById(userId);
-    if (user.wallet < discountedTotal) {
+    if (user.wallet < finalAmount) {
       return res.status(400).json({ error: 'Insufficient wallet balance' });
     }
     
-    // Deduct wallet amount and save the user
-    user.wallet -= discountedTotal;
-    await user.save();
-    
-    // Create order with payment method set to "Wallet"
-    const order = new Order({
-      orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`,
-      user: userId,
-      items: cart.items.map(item => ({
+    // Create order items with coupon share calculations
+    const orderItems = cart.items.map(item => {
+      const itemTotal = item.productId.salePrice * item.quantity;
+      // Calculate item's proportional share of coupon discount if coupon exists
+      const itemProportion = itemTotal / originalTotalAmount;
+      const itemCouponShare = couponDiscount ? (couponDiscount * itemProportion) : 0;
+
+      return {
         productId: item.productId._id,
         quantity: item.quantity,
         price: item.productId.salePrice,
-        totalPrice: item.productId.salePrice * item.quantity,
-      })),
+        originalPrice: item.productId.salePrice,
+        discountedPrice: item.productId.salePrice - (itemCouponShare / item.quantity),
+        couponShare: itemCouponShare,
+        totalPrice: itemTotal - itemCouponShare,
+        status: 'Pending'
+      };
+    });
+
+    // Create order
+    const order = new Order({
+      orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`,
+      user: userId,
+      items: orderItems,
       address: addressId,
       paymentMethod: 'Wallet',
       paymentStatus: 'Completed',
-      totalAmount: discountedTotal,
-      orderStatus: 'Pending'
+      originalTotalAmount: originalTotalAmount, // Add required field
+      totalAmount: finalAmount,
+      orderStatus: 'Pending',
+      couponApplied: !!req.session.coupon,
+      couponCode: req.session.coupon?.code || null,
+      couponDiscount: couponDiscount
     });
+
     await order.save();
     
-    // Now create the wallet transaction using the saved order's id
-    const walletTx = new WalletTransaction({
+    // Deduct from wallet and save user
+    user.wallet -= finalAmount;
+    await user.save();
+    
+    // Create wallet transaction
+    await new WalletTransaction({
       userId: userId,
-      amount: discountedTotal,
+      amount: finalAmount,
       type: "Debit",
-      description: `Payment for order id: ${order._id}`
-    });
-    await walletTx.save();
+      description: `Payment for order ${order.orderId}`,
+      orderId: order._id
+    }).save();
     
     // Update products stock
     for (const item of cart.items) {
-      await Product.findByIdAndUpdate(item.productId._id, { $inc: { quantity: -item.quantity } });
+      await Product.findByIdAndUpdate(
+        item.productId._id, 
+        { $inc: { quantity: -item.quantity } }
+      );
     }
+
+    // Clear cart and coupon
     cart.items = [];
     await cart.save();
-    
-    // Clear applied coupon from session
     req.session.coupon = undefined;
     
-    // Respond with order details
-    return res.json({ success: true, orderId: order._id });
+    return res.json({ 
+      success: true, 
+      orderId: order.orderId 
+    });
     
   } catch (error) {
     console.error('Error processing wallet payment:', error);
-    return res.status(500).json({ error: 'Unable to process wallet payment' });
+    return res.status(500).json({ 
+      error: 'Unable to process wallet payment',
+      details: error.message 
+    });
   }
 };
 
@@ -381,67 +445,88 @@ const cancelOrderItem = async (req, res) => {
     try {
         const { orderId, itemId, reason } = req.body;
         const userId = req.session.user;
-        const order = await Order.findOne({ _id: orderId, user: userId });
         
+        const order = await Order.findOne({ _id: orderId, user: userId });
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        const item = order.items.find(i => i._id.toString() === itemId);
-        if (!item) {
-            return res.status(404).json({ success: false, message: 'Order item not found' });
+        const itemIndex = order.items.findIndex(item => item._id.toString() === itemId);
+        if (itemIndex === -1) {
+            return res.status(404).json({ success: false, message: 'Item not found' });
         }
 
-        // Update individual item status
+        const item = order.items[itemIndex];
+        let refundAmount = item.price * item.quantity;
+
+        // Calculate coupon refund if coupon was applied
+        if (order.couponApplied && order.couponDiscount > 0) {
+            // Calculate total value of all items before coupon
+            const totalItemsValue = order.items.reduce((sum, item) => 
+                sum + (item.price * item.quantity), 0);
+
+            // Calculate this item's proportion of the total
+            const itemProportion = (item.price * item.quantity) / totalItemsValue;
+            
+            // Calculate this item's share of the coupon discount
+            const itemCouponShare = order.couponDiscount * itemProportion;
+            
+            // Store the coupon share for reference
+            item.couponShare = itemCouponShare;
+            
+            // Add the proportional coupon amount to the refund
+            refundAmount = (item.price * item.quantity) - itemCouponShare;
+        }
+
+        // Update item status
         item.status = 'Cancelled';
-        item.cancelReason = reason || '';
+        item.cancellationReason = reason;
 
-        // Calculate the DB status (must be a valid enum value)
-        const newOrderStatus = calculateOrderStatus(order.items);
-        order.orderStatus = newOrderStatus;
-
-        // Store additional status info for display purposes
-        if (!order.statusUpdates) {
-            order.statusUpdates = {};
-        }
-        const now = new Date();
-        order.statusUpdates[`item-${itemId}-cancelled`] = now;
-        
-        // Count cancelled items for display
-        const cancelledCount = order.items.filter(item => item.status === 'Cancelled').length;
-        const totalItems = order.items.length;
-        const displayStatus = cancelledCount === totalItems ? 'Cancelled' : 
-                            `${cancelledCount}/${totalItems} Items Cancelled`;
-
-        // Process refund if needed
-        if ((order.paymentMethod === 'Online' || order.paymentMethod === 'Wallet') 
-            && order.paymentStatus === 'Completed') {
-            const refundAmount = item.price * item.quantity;
+        // Process refund to wallet
+        if (order.paymentStatus === 'Completed' && 
+            (order.paymentMethod === 'Online' || order.paymentMethod === 'Wallet')) {
+            
             const user = await User.findById(userId);
-            if (user) {
-                user.wallet = (Number(user.wallet) || 0) + refundAmount;
-                await user.save();
-                
-                await new WalletTransaction({
-                    userId: userId,
-                    amount: refundAmount,
-                    type: 'Credit',
-                    description: `Refund for cancelled item in order ${orderId}`
-                }).save();
+            if (!user) {
+                return res.status(404).json({ success: false, message: 'User not found' });
             }
+
+            // Add refund to wallet
+            user.wallet = (user.wallet || 0) + refundAmount;
+            await user.save();
+
+            // Create wallet transaction record
+            await new WalletTransaction({
+                userId: userId,
+                type: 'Credit',
+                amount: refundAmount,
+                description: `Refund for cancelled item from order ${order.orderId} (Including proportional coupon discount)`,
+                orderId: order._id
+            }).save();
+        }
+
+        // Update order status if all items are cancelled
+        const activeItems = order.items.filter(item => 
+            !['Cancelled', 'Returned'].includes(item.status));
+        if (activeItems.length === 0) {
+            order.orderStatus = 'Cancelled';
         }
 
         await order.save();
-        
-        return res.json({ 
-            success: true, 
-            message: 'Order item successfully cancelled',
-            orderStatus: newOrderStatus,
-            displayStatus: displayStatus
+
+        return res.json({
+            success: true,
+            message: 'Item cancelled successfully',
+            refundAmount: refundAmount,
+            newOrderStatus: order.orderStatus
         });
+
     } catch (error) {
         console.error('Error cancelling order item:', error);
-        return res.status(500).json({ success: false, message: 'Error cancelling order item' });
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Error processing cancellation' 
+        });
     }
 };
 
@@ -553,6 +638,58 @@ const loadReviewPage = async (req, res) => {
     }
 };
 
+const createOrder = async (req, res) => {
+    try {
+        // ...existing validation code...
+
+        const cartItems = await Cart.findOne({ userId }).populate('items.productId');
+        
+        // Calculate original total before coupon
+        const originalTotal = cartItems.items.reduce((total, item) => 
+            total + (item.productId.salePrice * item.quantity), 0);
+
+        // Get coupon details from session if applied
+        const couponApplied = req.session.coupon ? true : false;
+        const couponDiscount = req.session.coupon ? req.session.coupon.discount : 0;
+        
+        // Calculate final total after coupon
+        const finalTotal = originalTotal - couponDiscount;
+
+        // Create order items with coupon share calculations
+        const orderItems = cartItems.items.map(item => {
+            const itemTotal = item.productId.salePrice * item.quantity;
+            const itemProportion = itemTotal / originalTotal;
+            const itemCouponShare = couponApplied ? (couponDiscount * itemProportion) : 0;
+
+            return {
+                productId: item.productId._id,
+                quantity: item.quantity,
+                price: item.productId.salePrice,
+                originalPrice: item.productId.salePrice,
+                discountedPrice: item.productId.salePrice - (itemCouponShare / item.quantity),
+                couponShare: itemCouponShare
+            };
+        });
+
+        const newOrder = new Order({
+            user: userId,
+            items: orderItems,
+            address: addressId,
+            paymentMethod: paymentMethod,
+            originalTotalAmount: originalTotal,
+            totalAmount: finalTotal,
+            couponApplied,
+            couponCode: req.session.coupon?.code,
+            couponDiscount
+        });
+
+        // ...rest of order creation logic...
+    } catch (error) {
+        console.error('Error creating order:', error);
+        return res.status(500).json({ success: false, message: 'Error creating order' });
+    }
+};
+
 module.exports = {
     viewOrderDetails,
     cancelOrder,
@@ -562,5 +699,6 @@ module.exports = {
     onlinePaymentSuccess,
     walletPaymentOrder,
     cancelOrderItem,
-    returnOrderItem
+    returnOrderItem,
+    createOrder
 };
