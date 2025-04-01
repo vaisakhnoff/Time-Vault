@@ -184,90 +184,86 @@ const checkoutPage = async (req, res) => {
 };
 
 const placeOrder = async (req, res) => {
-    try {
-        const userId = req.session.user;
-        const { addressId, paymentMethod } = req.body;
+  try {
+      const userId = req.session.user;
+      const { addressId, paymentMethod } = req.body;
 
-        // Fetch cart with populated product details
-        const cart = await Cart.findOne({ userId }).populate('items.productId');
-        if (!cart || cart.items.length === 0) {
-            return res.status(400).json({ error: 'Cart is empty' });
-        }
+      // Fetch cart with populated product details
+      const cart = await Cart.findOne({ userId }).populate('items.productId');
+      if (!cart || cart.items.length === 0) {
+          return res.status(400).json({ error: 'Cart is empty' });
+      }
 
-        // Calculate original total before any discounts
-        const originalTotalAmount = cart.items.reduce((total, item) => {
-            return total + (item.productId.salePrice * item.quantity);
-        }, 0);
+      // Calculate original total before any discounts
+      const originalTotalAmount = cart.items.reduce((total, item) => {
+          return total + (item.productId.salePrice * item.quantity);
+      }, 0);
 
-        // Get coupon discount if applied
-        const couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
-        
-        // Calculate final total after coupon
-        const finalAmount = originalTotalAmount - couponDiscount;
+      // Get coupon discount if applied
+      const couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
+      
+      // Calculate final total after coupon
+      const finalAmount = originalTotalAmount - couponDiscount;
 
-        // Create order items with proper price tracking
-        const orderItems = cart.items.map(item => {
-            const itemTotal = item.productId.salePrice * item.quantity;
-            // Calculate item's proportional share of coupon discount if coupon exists
-            const itemProportion = itemTotal / originalTotalAmount;
-            const itemCouponShare = couponDiscount ? (couponDiscount * itemProportion) : 0;
+      // Create order items with proper price tracking
+      const orderItems = cart.items.map(item => {
+          const itemTotal = item.productId.salePrice * item.quantity;
+          const itemProportion = itemTotal / originalTotalAmount;
+          const itemCouponShare = couponDiscount ? (couponDiscount * itemProportion) : 0;
 
-            return {
-                productId: item.productId._id,
-                quantity: item.quantity,
-                price: item.productId.salePrice,
-                originalPrice: item.productId.salePrice,
-                discountedPrice: item.productId.salePrice - (itemCouponShare / item.quantity),
-                couponShare: itemCouponShare,
-                totalPrice: itemTotal - itemCouponShare,
-                status: 'Pending'
-            };
-        });
+          return {
+              productId: item.productId._id,
+              quantity: item.quantity,
+              price: item.productId.salePrice,
+              originalPrice: item.productId.salePrice,
+              discountedPrice: item.productId.salePrice - (itemCouponShare / item.quantity),
+              couponShare: itemCouponShare,
+              totalPrice: itemTotal - itemCouponShare,
+              status: 'Pending'
+          };
+      });
 
-        // Create new order
-        const order = new Order({
-            orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`,
-            user: userId,
-            items: orderItems,
-            address: addressId,
-            paymentMethod: paymentMethod,
-            paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Completed',
-            originalTotalAmount: originalTotalAmount, // Add this required field
-            totalAmount: finalAmount,
-            orderStatus: 'Pending',
-            couponApplied: !!req.session.coupon,
-            couponCode: req.session.coupon?.code || null,
-            couponDiscount: couponDiscount
-        });
+      // Create new order
+      const order = new Order({
+          orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`,
+          user: userId,
+          items: orderItems,
+          address: addressId,
+          paymentMethod: paymentMethod,
+          paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Completed',
+          originalTotalAmount: originalTotalAmount,
+          totalAmount: finalAmount,
+          orderStatus: 'Pending',
+          couponApplied: !!req.session.coupon,
+          couponCode: req.session.coupon?.code || null,
+          couponDiscount: couponDiscount
+      });
 
-        await order.save();
+      await order.save();
 
-        // Update product quantities
-        for (const item of cart.items) {
-            await Product.findByIdAndUpdate(
-                item.productId._id,
-                { $inc: { quantity: -item.quantity } }
-            );
-        }
+      // Update product quantities
+      for (const item of cart.items) {
+          await Product.findByIdAndUpdate(
+              item.productId._id,
+              { $inc: { quantity: -item.quantity } }
+          );
+      }
 
-        // Clear cart and coupon from session
-        cart.items = [];
-        await cart.save();
-        req.session.coupon = undefined;
+      // Clear cart and coupon from session
+      cart.items = [];
+      await cart.save();
+      req.session.coupon = undefined;
 
-        return res.json({
-            success: true,
-            orderId: order.orderId,
-            message: 'Order placed successfully'
-        });
+      // Redirect to orderSuccess page instead of returning JSON
+      return res.redirect('/orderSuccess');
 
-    } catch (error) {
-        console.error('Error placing order:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Unable to place order'
-        });
-    }
+  } catch (error) {
+      console.error('Error placing order:', error);
+      return res.status(500).json({
+          success: false,
+          error: 'Unable to place order'
+      });
+  }
 };
 
 const orderSuccess = async (req, res) => {

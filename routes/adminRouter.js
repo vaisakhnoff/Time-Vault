@@ -27,7 +27,7 @@ const auth=  require('../middleware/admin/auth')
 const couponController = require('../controllers/admin/couponController');
 const dashboardController = require('../controllers/admin/dashboardController');
 
-const brandController = require('../controllers/admin/brandcontroller');
+const brandController = require('../controllers/admin/brandController');
 const salesReportController = require('../controllers/admin/salesReportController');
 
 

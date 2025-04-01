@@ -378,7 +378,29 @@ document.getElementById('checkout-form').addEventListener('submit', async functi
         return;
     }
 
-    if (paymentMethod === 'Online') {
+    if (paymentMethod === 'COD') {
+        try {
+            const response = await fetch('/placeOrder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ addressId, paymentMethod })
+            });
+
+            if (response.redirected) {
+                window.location.href = response.url; // Follow the server's redirect
+            } else {
+                const data = await response.json();
+                if (data.success) {
+                    window.location.href = '/orderSuccess';
+                } else {
+                    Swal.fire('Error', data.error || 'Failed to place COD order', 'error');
+                }
+            }
+        } catch (error) {
+            Swal.fire('Error', 'Something went wrong!', 'error');
+        }
+    } else if (paymentMethod === 'Online') {
+        // Existing Online payment logic remains unchanged
         try {
             const orderRes = await fetch('/createOnlineOrder', {
                 method: 'POST',
@@ -432,8 +454,8 @@ document.getElementById('checkout-form').addEventListener('submit', async functi
         } catch (error) {
             Swal.fire('Error', 'Failed to initialize payment', 'error');
         }
-
     } else if (paymentMethod === 'Wallet') {
+        // Existing Wallet payment logic remains unchanged
         try {
             const response = await fetch('/walletPaymentOrder', {
                 method: 'POST',
@@ -448,13 +470,8 @@ document.getElementById('checkout-form').addEventListener('submit', async functi
                 Swal.fire('Error', data.error || 'Wallet payment failed', 'error');
             }
         } catch (error) {
-            console.error('Wallet payment error:', error);
             Swal.fire('Error', 'Something went wrong!', 'error');
         }
-
-    } else if (paymentMethod === 'COD') {
-        // For COD, submit the form normally
-        this.submit();
     } else {
         Swal.fire('Error', 'Please select a payment method', 'error');
     }

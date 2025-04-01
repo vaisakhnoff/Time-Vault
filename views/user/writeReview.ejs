@@ -1,4 +1,6 @@
 <%- include("../../views/partials/user/header") %>
+<link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -192,12 +194,36 @@ function removeImage(button) {
 document.getElementById('reviewForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    const formData = new FormData(this);
-    
+    // Get form values
+    const rating = document.querySelector('input[name="rating"]:checked')?.value;
+    const title = document.querySelector('input[name="title"]').value.trim();
+    const review = document.querySelector('textarea[name="review"]').value.trim();
+
+    // Validate inputs
+    if (!rating || !title || !review) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Please fill all fields',
+            text: 'Rating, title and review are required'
+        });
+        return;
+    }
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('orderId', this.elements['orderId'].value);
+    formData.append('productId', this.elements['productId'].value);
+    formData.append('rating', rating);
+    formData.append('title', title);
+    formData.append('review', review);
+
     try {
         const response = await fetch('/submitReview', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(Object.fromEntries(formData))
         });
 
         const result = await response.json();
@@ -209,16 +235,17 @@ document.getElementById('reviewForm').addEventListener('submit', async function(
                 text: result.message,
                 timer: 2000
             }).then(() => {
-                window.location.href = `/order/${formData.get('orderId')}`;
+                window.location.href = `/order/${this.elements['orderId'].value}`;
             });
         } else {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: result.message
+                text: result.message || 'Failed to submit review'
             });
         }
     } catch (error) {
+        console.error('Error:', error);
         Swal.fire({
             icon: 'error',
             title: 'Error',
@@ -226,21 +253,8 @@ document.getElementById('reviewForm').addEventListener('submit', async function(
         });
     }
 });
-
-document.getElementById('reviewForm').addEventListener('submit', function(e) {
-    const rating = document.querySelector('input[name="rating"]:checked');
-    const title = document.querySelector('input[name="title"]').value.trim();
-    const review = document.querySelector('textarea[name="review"]').value.trim();
-
-    if (!rating || !title || !review) {
-        e.preventDefault();
-        Swal.fire({
-            icon: 'error',
-            title: 'Please fill all fields',
-            text: 'Rating, title and review are required'
-        });
-    }
-});
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10/dist/sweetalert2.min.js"></script>
+
 
 <%- include("../../views/partials/user/footer") %>

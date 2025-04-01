@@ -185,41 +185,65 @@ const cancelOrder = async (req, res) => {
 };
 
 const submitReview = async (req, res) => {
-  try {
-    const { orderId, productId, rating, review } = req.body;
-    const userId = req.session.user;
+    try {
+        const { orderId, productId, rating, title, review } = req.body;
+        const userId = req.session.user;
 
-   
-    await Order.updateOne(
-      { 
-        _id: orderId,
-        'items.productId': productId 
-      },
-      { 
-        $set: { 'items.$.reviewed': true }
-      }
-    );
-
-   
-    await Product.updateOne(
-      { _id: productId },
-      {
-        $push: {
-          reviews: {
-            userId,
-            rating: parseInt(rating),
-            review,
-            createdAt: new Date()
-          }
+        // Validate inputs
+        if (!rating || !title || !review) {
+            return res.status(400).json({
+                success: false,
+                message: 'Rating, title and review are required'
+            });
         }
-      }
-    );
 
-    res.redirect(`/order/${orderId}`);
-  } catch (error) {
-    console.error('Error submitting review:', error);
-    res.redirect('/pageNotFound');
-  }
+        // Update order to mark item as reviewed
+        await Order.updateOne(
+            { 
+                _id: orderId,
+                'items.productId': productId 
+            },
+            { 
+                $set: { 'items.$.reviewed': true }
+            }
+        );
+
+        // Add review to product
+        const updatedProduct = await Product.findByIdAndUpdate(
+            productId,
+            {
+                $push: {
+                    reviews: {
+                        userId: userId,
+                        rating: Number(rating),
+                        title: title,
+                        review: review,
+                        createdAt: new Date()
+                    }
+                }
+            },
+            { new: true }
+        );
+
+        if (!updatedProduct) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: 'Review submitted successfully'
+        });
+
+    } catch (error) {
+        console.error('Error submitting review:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error submitting review'
+        });
+    }
 };
 
 const createOnlineOrder = async (req, res) => {
