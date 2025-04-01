@@ -18,6 +18,34 @@
     .hidden {
       display: none;
     }
+
+    .crop-container {
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .cropper-container {
+        margin: 0 auto;
+    }
+
+    .cropper-view-box,
+    .cropper-face {
+        border-radius: 8px;
+    }
+
+    .cropper-controls {
+        margin-top: 15px;
+        padding: 10px 0;
+        border-top: 1px solid #eee;
+    }
+
+    .image-preview {
+        max-width: 200px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
   </style>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs/dist/cropper.min.css">
  
@@ -101,36 +129,55 @@
             <!-- Images Section (up to 4 images) -->
             <div class="card mb-2">
               <div class="card-header">
-                <h4>Choose Images (up to 4)</h4>
+                <h4>Product Images (up to 4)</h4>
               </div>
               <div class="card-body">
                 <% for(let i = 1; i <= 4; i++) { %>
                   <div class="image-upload-section" id="imageSection<%= i %>">
                     <div class="card-body align-items-center" style="margin-bottom: 20px;">
-                      <!-- Existing image preview (if available) -->
-                     <img 
-  src="<%= product.productImage[i-1] ? '/uploads/product-images/' + product.productImage[i-1] : '' %>" 
-  alt="Preview <%= i %>" 
-  id="imgView<%= i %>"
-  style="max-width:200px; <% if(!product.productImage[i-1]) { %> display: none; <% } %>"
->
-
-<input class="form-control" type="file" name="images" id="input<%= i %>" accept="image/png, image/jpeg, image/jpg" onchange="handleImageChange(event, <%= i %>)">
-
+                      <div class="current-image-container" id="currentImage<%= i %>">
+                        <% if(product.productImage[i-1]) { %>
+                          <img 
+                            src="/uploads/product-images/<%= product.productImage[i-1] %>" 
+                            alt="Current Image <%= i %>" 
+                            class="current-preview"
+                            style="max-width:200px;"
+                          >
+                          <button type="button" 
+                                  class="btn btn-sm btn-danger mt-2" 
+                                  onclick="removeImage('<%= i %>')">
+                            Remove
+                          </button>
+                        <% } %>
+                      </div>
+                      
+                      <div class="new-image-container mt-3">
+                        <input class="form-control" 
+                               type="file" 
+                               name="images" 
+                               id="input<%= i %>" 
+                               accept="image/png, image/jpeg, image/jpg"
+                               onchange="handleImageChange(event, <%= i %>)">
+                      </div>
+                      
                       <div id="images-error-<%= i %>" class="error-message"></div>
                     </div>
-                  
-                    <!-- Cropping container; hidden by default -->
-                    <div class="image-cropper d-flex align-items-center hidden" 
-                         style="width: 300px; height: 200px; margin-bottom: 20px;" 
-                         id="cropContainer<%= i %>">
-                      <!-- We keep this <img> for cropping -->
-                      <img src="" id="croppedImg<%= i %>" alt="Cropped Preview <%= i %>">
-                      <!-- Keep the Save button in the DOM -->
-                      <button type="button" id="saveButton<%= i %>" class="btn-sm btn-primary">Save</button>
+                    
+                    <!-- Update the image cropper container in the image section -->
+                    <div class="image-cropper d-none" id="cropContainer<%= i %>">
+                        <div class="crop-container" style="max-width: 500px; margin: 0 auto;">
+                            <img src="" id="croppedImg<%= i %>" alt="Cropped Preview" style="max-width: 100%;">
+                            <div class="cropper-controls mt-3 d-flex justify-content-center gap-2">
+                                <button type="button" id="saveCrop<%= i %>" class="btn btn-primary">
+                                    <i class="material-icons md-save"></i> Save Crop
+                                </button>
+                                <button type="button" id="cancelCrop<%= i %>" class="btn btn-secondary">
+                                    <i class="material-icons md-close"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
                     </div>
                   </div>
-                  
                 <% } %>
               </div>
             </div>
@@ -209,67 +256,131 @@ function clearErrorMessages() {
 
 // --------------------- Image Cropping Functions ---------------------
 function handleImageChange(event, index) {
-  const input = event.target;
-  const mainPreview = document.getElementById(`imgView${index}`);
-  const cropContainer = document.getElementById(`cropContainer${index}`);
-  const tempImg = document.getElementById(`croppedImg${index}`);
-  const saveButtonId = `saveButton${index}`;
-  
-  if (input.files && input.files[0]) {
-    // Hide the old preview (optional)
-    mainPreview.style.display = 'none';
+    const input = event.target;
+    const currentImageContainer = document.getElementById(`currentImage${index}`);
+    const cropContainer = document.getElementById(`cropContainer${index}`);
+    let cropper = null;
+    
+    if (input.files && input.files[0]) {
+        // Validate file size (max 5MB)
+        if (input.files[0].size > 5 * 1024 * 1024) {
+            Swal.fire({
+                icon: 'error',
+                title: 'File too large',
+                text: 'Please select an image under 5MB'
+            });
+            input.value = '';
+            return;
+        }
 
-    const reader = new FileReader();
-    reader.onload = function() {
-      // Destroy old cropper if it exists
-      if (tempImg.cropper) {
-        tempImg.cropper.destroy();
-      }
-      
-      // Show the crop container
-      cropContainer.classList.remove('hidden');
-      tempImg.src = reader.result;
-      
-      // Create a new cropper instance
-      const cropper = new Cropper(tempImg, {
-        aspectRatio: 1,
-        viewMode: 1,
-        autoCropArea: 1,
-      });
+        // Hide current image
+        if (currentImageContainer) {
+            currentImageContainer.style.display = 'none';
+        }
+        
+        // Show cropper
+        cropContainer.classList.remove('d-none');
+        
+        const tempImg = document.getElementById(`croppedImg${index}`);
+        const saveButton = document.getElementById(`saveCrop${index}`);
+        const cancelButton = document.getElementById(`cancelCrop${index}`);
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // Destroy existing cropper if any
+            if (tempImg.cropper) {
+                tempImg.cropper.destroy();
+            }
+            
+            tempImg.src = e.target.result;
+            
+            // Initialize cropper
+            cropper = new Cropper(tempImg, {
+                aspectRatio: 1,
+                viewMode: 2,
+                autoCropArea: 1,
+                responsive: true,
+                guides: true,
+                cropBoxMovable: true,
+                cropBoxResizable: true,
+                toggleDragModeOnDblclick: true
+            });
 
-      // Reset the Save button listener
-      let saveButton = document.getElementById(saveButtonId);
-      saveButton.replaceWith(saveButton.cloneNode(true));
-      saveButton = document.getElementById(saveButtonId);
+            // Save cropped image
+            saveButton.onclick = function() {
+                const canvas = cropper.getCroppedCanvas({
+                    width: 450,
+                    height: 450,
+                    imageSmoothingEnabled: true,
+                    imageSmoothingQuality: 'high'
+                });
 
-      // Attach a single "Save" listener
-      saveButton.addEventListener('click', () => {
-        const croppedCanvas = cropper.getCroppedCanvas();
-        croppedCanvas.toBlob(blob => {
-          // Create a new file
-          const fileName = `cropped-${index}-${Date.now()}.png`;
-          const newFile = new File([blob], fileName, { type: 'image/png' });
+                canvas.toBlob(function(blob) {
+                    const fileName = `cropped-${index}-${Date.now()}.png`;
+                    const croppedFile = new File([blob], fileName, { type: 'image/png' });
 
-          // Replace the file in the input
-          const dataTransfer = new DataTransfer();
-          dataTransfer.items.add(newFile);
-          input.files = dataTransfer.files;
+                    // Update file input
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(croppedFile);
+                    input.files = dataTransfer.files;
 
-          // Update the main preview
-          mainPreview.src = croppedCanvas.toDataURL('image/png');
-          mainPreview.style.display = 'block';
+                    // Show preview
+                    if (currentImageContainer) {
+                        const previewImg = currentImageContainer.querySelector('img') || document.createElement('img');
+                        previewImg.src = canvas.toDataURL('image/png');
+                        previewImg.classList.add('image-preview');
+                        currentImageContainer.innerHTML = '';
+                        currentImageContainer.appendChild(previewImg);
+                        currentImageContainer.style.display = 'block';
+                    }
 
-          // Hide cropper
-          cropContainer.classList.add('hidden');
-          cropper.destroy();
-        });
-      });
-    };
-    reader.readAsDataURL(input.files[0]);
-  }
+                    // Cleanup
+                    cropper.destroy();
+                    cropContainer.classList.add('d-none');
+
+                    // Show success message
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Image Cropped',
+                        text: 'Image has been cropped and saved',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }, 'image/png', 0.9);
+            };
+
+            // Cancel cropping
+            cancelButton.onclick = function() {
+                cropper.destroy();
+                cropContainer.classList.add('d-none');
+                input.value = '';
+                if (currentImageContainer) {
+                    currentImageContainer.style.display = 'block';
+                }
+            };
+        };
+        
+        reader.readAsDataURL(input.files[0]);
+    }
 }
 
-
+function removeImage(index) {
+    // Hide current image container
+    const currentImageContainer = document.getElementById(`currentImage${index}`);
+    currentImageContainer.style.display = 'none';
+    
+    // Clear the file input
+    const fileInput = document.getElementById(`input${index}`);
+    fileInput.value = '';
+    
+    // Add a hidden input to track removed images
+    const form = document.getElementById('editProductForm');
+    const hiddenInput = document.createElement('input');
+    hiddenInput.type = 'hidden';
+    hiddenInput.name = 'removedImages';
+    hiddenInput.value = index - 1; // Array index
+    form.appendChild(hiddenInput);
+}
 
 // --------------------- Fetch Submission for Edit ---------------------
 function updateProductFetch() {

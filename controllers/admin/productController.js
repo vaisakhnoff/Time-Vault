@@ -193,7 +193,6 @@ const editProduct = async (req, res) => {
         const productId = req.params.id;
         const updatedData = req.body;
         
-        
         const existingProduct = await Product.findById(productId);
         if (!existingProduct) {
             return res.status(404).json({ 
@@ -202,7 +201,7 @@ const editProduct = async (req, res) => {
             });
         }
 
-      
+        // Handle product name duplication check
         if (updatedData.productName && 
             updatedData.productName !== existingProduct.productName) {
             const duplicate = await Product.findOne({ 
@@ -216,39 +215,56 @@ const editProduct = async (req, res) => {
             }
         }
 
-        
-        let images = existingProduct.productImage;
+        // Handle image updates
+        let images = [...existingProduct.productImage]; // Create a copy of existing images
         if (req.files && req.files.length > 0) {
-           
-        }
-        updatedData.productImage = images;
+            // Delete old images from filesystem
+            for (const oldImage of existingProduct.productImage) {
+                const imagePath = path.join('public', 'uploads', 'product-images', oldImage);
+                if (fs.existsSync(imagePath)) {
+                    fs.unlinkSync(imagePath);
+                }
+            }
 
+            // Process and save new images
+            images = [];
+            for (const file of req.files) {
+                const resizedFileName = 'resized-' + file.filename;
+                const resizedImagePath = path.join('public', 'uploads', 'product-images', resizedFileName);
+                
+                await sharp(file.path)
+                    .resize({ width: 450, height: 440 })
+                    .toFile(resizedImagePath);
+
+                // Delete the original uploaded file
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
+                
+                images.push(resizedFileName);
+            }
+        }
         
+        // Update product data
         const categoryDoc = await Category.findOne({ name: updatedData.category });
         const brandDoc = await Brand.findOne({ brandName: updatedData.brand });
 
-        if (!categoryDoc) {
+        if (!categoryDoc || !brandDoc) {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Invalid category name' 
+                message: 'Invalid category or brand' 
             });
         }
-
-        if (!brandDoc) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid brand name' 
-            });
-        }
-
-       
-        updatedData.category = categoryDoc._id;
-        updatedData.brand = brandDoc._id;
-        updatedData.updatedOn = new Date();
 
         const updatedProduct = await Product.findByIdAndUpdate(
             productId, 
-            updatedData, 
+            {
+                ...updatedData,
+                productImage: images,
+                category: categoryDoc._id,
+                brand: brandDoc._id,
+                updatedOn: new Date()
+            },
             { new: true }
         );
 
