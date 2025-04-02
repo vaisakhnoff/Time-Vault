@@ -1,6 +1,4 @@
-
-
-	<!-- Start Banner Area -->
+<!-- Start Banner Area -->
 	<section class="banner-area organic-breadcrumb">
 		<div class="container">
 			<div class="breadcrumb-banner d-flex flex-wrap align-items-center justify-content-end">
@@ -15,6 +13,29 @@
 		</div>
 	</section>
 	<!-- End Banner Area -->
+
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+	<!-- Add this style section after your existing styles -->
+	<style>
+		.password-field {
+			position: relative;
+		}
+		
+		.toggle-password {
+			position: absolute;
+			right: 10px;
+			top: 50%;
+			transform: translateY(-50%);
+			cursor: pointer;
+			color: #777;
+			transition: color 0.2s ease;
+		}
+		
+		.toggle-password:hover {
+			color: #333;
+		}
+	</style>
 
 	<%- include("../../views/partials/user/header") %>
 
@@ -39,8 +60,11 @@
 							<div class="col-md-12 form-group">
 								<input type="email" class="form-control" id="email" name="email" placeholder="email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'email'">
 							</div>
-							<div class="col-md-12 form-group">
-								<input type="password" class="form-control" id="password" name="password" placeholder="password" onfocus="this.placeholder = ''" onblur="this.placeholder = 'password'">
+							<div class="col-md-12 form-group password-field">
+								<input type="password" class="form-control" id="password" name="password" 
+									   placeholder="password" onfocus="this.placeholder = ''" 
+									   onblur="this.placeholder = 'password'">
+								<i class="fa fa-eye-slash toggle-password" id="togglePassword"></i>
 							</div>
 							<% if (locals.message && locals.message.length > 0) { %>
 								<!-- Alert Message -->
@@ -94,4 +118,21 @@
 
 	
 	<%-include("../../views/partials/user/footer")%>
-	
+
+	<!-- Add this script section before the closing body tag -->
+	<script>
+	    document.addEventListener('DOMContentLoaded', function() {
+	        const togglePassword = document.querySelector('#togglePassword');
+	        const password = document.querySelector('#password');
+	        
+	        togglePassword.addEventListener('click', function() {
+	            // Toggle the type attribute
+	            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+	            password.setAttribute('type', type);
+	            
+	            // Toggle the eye icon
+	            this.classList.toggle('fa-eye');
+	            this.classList.toggle('fa-eye-slash');
+	        });
+	    });
+	</script>

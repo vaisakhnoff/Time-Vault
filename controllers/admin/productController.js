@@ -74,55 +74,72 @@ const addProducts = async(req,res)=>{
             productName: products.productName,
         });
         
-        if(!productExists){
-            const images =[];
-
-            if(req.files && req.files.length>0){
-                for(let i=0;i<req.files.length;i++){
-                    const originalImagePath = req.files[i].path;
-
-                    const resizedFileName = 'resized-' + req.files[i].filename;
-const resizedImagePath = path.join('public', 'uploads', 'product-images', resizedFileName);
-await sharp(originalImagePath)
-  .resize({ width: 450, height: 440 })
-  .toFile(resizedImagePath);
-images.push(resizedFileName);
-
-                }
-            }
-            const categoryId = await Category.findOne({name:products.category});
-            const brandId = await Brand.findOne({brandName: products.brand}); 
-            
-            if(!categoryId){
-                return res.status(400).send('Invalid category name');
-            }
-
-            if(!brandId){ // Add this validation
-                return res.status(400).send('Invalid brand name');
-            }
-
-            const newProduct = new Product({
-                productName: products.productName,
-                description: products.description,
-                brand: brandId._id, // Add this
-                category: categoryId._id,
-                regularPrice: products.regularPrice,
-                salePrice: products.salePrice,
-                createdOn: new Date(),
-                quantity: products.quantity,
-                size: products.size,
-                productImage: images,
-                status: 'Available',
+        if(productExists){
+            // Return JSON response for duplicate product
+            return res.status(400).json({
+                success: false,
+                message: "Product with this name already exists",
+                title: "Duplicate Product"
             });
-            
-            await newProduct.save();
-            return res.redirect('/admin/products');
-        } else {
-            return res.status(400).json("Product already exists, Please try with another name")
         }
+
+        const images = [];
+        if(req.files && req.files.length>0){
+            for(let i=0;i<req.files.length;i++){
+                const originalImagePath = req.files[i].path;
+
+                const resizedFileName = 'resized-' + req.files[i].filename;
+                const resizedImagePath = path.join('public', 'uploads', 'product-images', resizedFileName);
+                await sharp(originalImagePath)
+                    .resize({ width: 450, height: 440 })
+                    .toFile(resizedImagePath);
+                images.push(resizedFileName);
+            }
+        }
+        
+        const categoryId = await Category.findOne({name:products.category});
+        const brandId = await Brand.findOne({brandName: products.brand}); 
+        
+        if(!categoryId){
+            return res.status(400).json({
+                success: false,
+                message: "Invalid category selected"
+            });
+        }
+
+        if(!brandId){
+            return res.status(400).json({
+                success: false,
+                message: "Invalid brand selected"
+            });
+        }
+
+        const newProduct = new Product({
+            productName: products.productName,
+            description: products.description,
+            brand: brandId._id,
+            category: categoryId._id,
+            regularPrice: products.regularPrice,
+            salePrice: products.salePrice,
+            createdOn: new Date(),
+            quantity: products.quantity,
+            size: products.size,
+            productImage: images,
+            status: 'Available',
+        });
+        
+        await newProduct.save();
+        return res.status(200).json({
+            success: true,
+            message: "Product added successfully"
+        });
+
     } catch (error) {
         console.error('Error saving product', error);
-        return res.redirect('/pageError')
+        return res.status(500).json({
+            success: false,
+            message: "Error occurred while adding product"
+        });
     }
 }
 

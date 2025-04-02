@@ -1,5 +1,5 @@
 const Order = require('../../models/orderSchema');
-const user = require('../../models/userschema'); // 
+const User = require('../../models/userschema'); // 
 const Address = require('../../models/addressSchema');
 const WalletTransaction = require('../../models/walletSchema');
 const Product = require('../../models/productSchema');
@@ -60,7 +60,7 @@ const viewOrderDetails = async (req, res) => {
 
     if (!order) return res.redirect('/admin/orders');
     const userId = order.user._id;
-    const userData = await user.findById(userId).lean();
+    const userData = await User.findById(userId).lean();
     const addressDoc = await Address.findOne({ userId: userId }).lean();
     let selectedAddress = null;
 
@@ -234,20 +234,20 @@ const listReturnRequests = async (req, res) => {
 const processReturnRequest = async (req, res) => {
   try {
     const { orderId, approve, productId } = req.body;
-    const order = await Order.findOne({ orderId: orderId }) // Changed from findById
+    const order = await Order.findOne({ orderId: orderId })
       .populate('user')
       .populate('items.productId');
     
     if (!order) {
       return res.status(404).json({ 
         success: false, 
-        message: 'Order not found'
+        message: 'Order not found' 
       });
     }
 
-    
     const item = order.items.find(item => item.productId &&
       item.productId._id.toString() === productId);
+
     if (!item || item.status !== 'Return Requested') {
       return res.status(400).json({
         success: false,
@@ -256,38 +256,66 @@ const processReturnRequest = async (req, res) => {
     }
 
     if (approve === true || approve === 'true') {
-      // Restore stock for this product item
+      // Restore stock
       const product = await Product.findById(productId);
       if (product) {
         product.quantity += item.quantity;
         await product.save();
       }
-      // Process refund for this product item
-      const refundAmount = item.price * item.quantity;
-      order.user.wallet = (order.user.wallet || 0) + refundAmount;
-      await order.user.save();
 
-      await new WalletTransaction({
-        userId: order.user._id,
-        amount: refundAmount,
-        type: 'Credit',
-        description: `Refund for product return in order ${order._id} for product ${product.productName}`
-      }).save();
+      // Calculate refund amount with proportional coupon discount
+      let refundAmount = item.price * item.quantity;
+
+      // If order had a coupon applied, calculate this item's share of the discount
+      if (order.couponApplied && order.couponDiscount > 0) {
+        // Calculate total value of all items before coupon
+        const totalOrderValue = order.items.reduce((sum, item) => 
+          sum + (item.price * item.quantity), 0);
+
+        // Calculate this item's proportion of the total order value
+        const itemProportion = (item.price * item.quantity) / totalOrderValue;
+        
+        // Calculate this item's share of the coupon discount
+        const itemCouponShare = order.couponDiscount * itemProportion;
+        
+        // Subtract the coupon share from the refund amount
+        refundAmount -= itemCouponShare;
+      }
+
+      // Process refund
+      const user = await User.findById(order.user._id);
+      if (user) {
+        user.wallet = (user.wallet || 0) + refundAmount;
+        await user.save();
+
+        // Create wallet transaction record
+        await new WalletTransaction({
+          userId: order.user._id,
+          amount: refundAmount,
+          type: 'Credit',
+          description: `Refund for returned item in order ${order.orderId} (Including proportional coupon discount)`,
+          orderId: order._id
+        }).save();
+      }
 
       item.status = 'Returned';
     } else {
       item.status = 'Return Declined';
     }
 
-   
+    // Update overall order status if needed
     if (!order.items.some(i => i.status === 'Return Requested')) {
-      
       const allApprovedOrProcessed = order.items.every(i => 
-        i.status === 'Returned' || i.status === 'Cancelled' || i.status === 'Return Declined'
+        i.status === 'Returned' || 
+        i.status === 'Cancelled' || 
+        i.status === 'Return Declined'
       );
+
       if (allApprovedOrProcessed) {
-      
-        const allReturned = order.items.every(i => i.status === 'Returned' || i.status === 'Cancelled');
+        const allReturned = order.items.every(i => 
+          i.status === 'Returned' || 
+          i.status === 'Cancelled'
+        );
         order.orderStatus = allReturned ? 'Returned' : 'Delivered';
       }
     }
@@ -298,8 +326,8 @@ const processReturnRequest = async (req, res) => {
     return res.json({
       success: true,
       message: approve === true || approve === 'true'
-        ? 'Return request approved for product and refund processed'
-        : 'Return request declined for product'
+        ? 'Return request approved and refund processed with adjusted coupon discount'
+        : 'Return request declined'
     });
   } catch (error) {
     console.error('Error processing return request:', error);

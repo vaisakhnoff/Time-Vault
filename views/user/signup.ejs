@@ -1,8 +1,21 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <style>
 		.error_message{
 			display: none;
 			color: red;
 			font-size: 0.75rem;
+		}
+		.position-relative {
+			position: relative;
+		}
+
+		.fa-eye, .fa-eye-slash {
+			color: #777;
+			transition: color 0.2s ease;
+		}
+
+		.fa-eye:hover, .fa-eye-slash:hover {
+			color: #333;
 		}
 	</style>
 
@@ -67,15 +80,23 @@
 								<input type="text" class="form-control" id="referalCode" name="referalCode" placeholder="Referral Code (optional)" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Referral Code (optional)'">
 							</div>
 
-							<div class="col-md-12 form-group">
-								<input type="password" class="form-control" id="password" name="password" placeholder="Password" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Password'">
+							<div class="col-md-12 form-group position-relative">
+								<input type="password" class="form-control" id="password" name="password" 
+									   placeholder="Password (8+ chars, 1 uppercase, 1 number)" 
+									   onfocus="this.placeholder = ''" 
+									   onblur="this.placeholder = 'Password (8+ chars, 1 uppercase, 1 number)'">
+								<i class="fa fa-eye-slash" id="togglePassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer;"></i>
 							</div>
-                            <div  id="error5" class="error_message"></div>
+                            <div id="error5" class="error_message"></div>
                             
-							<div class="col-md-12 form-group">
-								<input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm Password" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Confirm Password'">
+							<div class="col-md-12 form-group position-relative">
+								<input type="password" class="form-control" id="confirmPassword" name="confirmPassword" 
+									   placeholder="Confirm Password" 
+									   onfocus="this.placeholder = ''" 
+									   onblur="this.placeholder = 'Confirm Password'">
+								<i class="fa fa-eye-slash" id="toggleConfirmPassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer;"></i>
 							</div>
-                            <div  id="error6" class="error_message"></div>
+                            <div id="error6" class="error_message"></div>
 							<% if (locals.message && locals.message.length > 0) { %>
 								<!-- Alert Message -->
 								<div class="alert alert-warning text-center w-100" id="autoFadeAlert" role="alert" style="margin-top: 20px;">
@@ -225,32 +246,36 @@ function phoneNumberValidateChecking(e){
 }
 
 function passwordValidateChecking(e){
-	const passwordValue = passwordId.value;
-	const confirmpasswordvalue = confirmPasswordId.value;
-    const alpha = /[a-zA-Z]/;
-		const number = /\d/;
+    const passwordValue = passwordId.value;
+    const confirmpasswordvalue = confirmPasswordId.value;
+    const upperCase = /[A-Z]/;
+    const number = /\d/;
 
-   if(passwordValue.length <8 ){
-	error5.style.display = "block";
-	error5.innerHTML = "Password must be atleast 8 characters long";
-   }
-   else if(!alpha.test(passwordValue) || !number.test(passwordValue)){
-	error5.style.display = "block";
-	error5.innerHTML = "Password must contain atleast one alphabet and one number";
-   }
-   else{
-	error5.style.display = "none";
-	error5.innerHTML = "";
-   }
-   if(confirmpasswordvalue.trim() !== "" && passwordValue !== confirmpasswordvalue){	
-	error6.style.display = "block";
-	error6.innerHTML = "Password and Confirm Password must be same";
-   }
-   else{
-	error6.style.display = "none";
-	error6.innerHTML = "";
-   }
-
+    if(passwordValue.length < 8){
+        error5.style.display = "block";
+        error5.innerHTML = "Password must be at least 8 characters long";
+    }
+    else if(!upperCase.test(passwordValue)){
+        error5.style.display = "block";
+        error5.innerHTML = "Password must contain at least one uppercase letter";
+    }
+    else if(!number.test(passwordValue)){
+        error5.style.display = "block";
+        error5.innerHTML = "Password must contain at least one number";
+    }
+    else{
+        error5.style.display = "none";
+        error5.innerHTML = "";
+    }
+    
+    if(confirmpasswordvalue.trim() !== "" && passwordValue !== confirmpasswordvalue){    
+        error6.style.display = "block";
+        error6.innerHTML = "Password and Confirm Password must be same";
+    }
+    else{
+        error6.style.display = "none";
+        error6.innerHTML = "";
+    }
 }
 
 function confirmPasswordValidateChecking() {
@@ -269,6 +294,19 @@ function confirmPasswordValidateChecking() {
     }
 }
 
+function togglePasswordVisibility(inputId, togglerId) {
+    const input = document.getElementById(inputId);
+    const toggler = document.getElementById(togglerId);
+    
+    toggler.addEventListener('click', function() {
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+        
+        // Toggle the eye icon
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+    });
+}
 
 document.addEventListener("DOMContentLoaded", function() {
    
@@ -279,6 +317,9 @@ document.addEventListener("DOMContentLoaded", function() {
     passwordId.addEventListener("input", passwordValidateChecking);
     confirmPasswordId.addEventListener("input", confirmPasswordValidateChecking);
 
+    // Initialize password toggles
+    togglePasswordVisibility('password', 'togglePassword');
+    togglePasswordVisibility('confirmPassword', 'toggleConfirmPassword');
     
     signupForm.addEventListener("submit", function(e) {
         e.preventDefault(); 

@@ -243,7 +243,7 @@
             <h2 class="form-title">Add New Product</h2>
         </div>
         <div class="form-card-body">
-            <form method="post" action="/admin/addProducts" enctype="multipart/form-data" id="productForm">
+            <form method="post" action="/admin/addProducts" enctype="multipart/form-data" id="productForm" onsubmit="event.preventDefault();">
                 <!-- Product Details Section -->
                 <div class="form-card">
                     <div class="form-card-header">
@@ -571,9 +571,6 @@ function validateAndSubmit() {
 
     const activeCroppers = Object.keys(croppers).length;
     if (activeCroppers > 0) {
-        if (Swal.isVisible()) {
-            Swal.close();
-        }
         Swal.fire({
             icon: 'warning',
             title: 'Finish Cropping',
@@ -585,30 +582,45 @@ function validateAndSubmit() {
     }
 
     if (validateForm() && validateImages()) {
-        if (Swal.isVisible()) {
-            Swal.close();
-        }
-        Swal.fire({
-            title: 'Publish Product?',
-            text: "You're about to add a new product to your inventory",
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#06d6a0',
-            cancelButtonColor: '#ef476f',
-            confirmButtonText: 'Yes, publish it!',
-            cancelButtonText: 'Cancel',
-            allowOutsideClick: false,
-            showLoaderOnConfirm: true,
-            preConfirm: () => {
-                return new Promise((resolve) => {
-                    document.getElementById('productForm').submit();
-                    resolve();
+        const form = document.getElementById('productForm');
+        const formData = new FormData(form);
+
+        fetch('/admin/addProducts', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: data.message,
+                    confirmButtonColor: '#06d6a0'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = '/admin/products';
+                    }
                 });
-            }
-        }).then((result) => {
-            if (!result.isConfirmed) {
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: data.title || 'Error',
+                    text: data.message || 'Something went wrong!',
+                    confirmButtonColor: '#ef476f'
+                });
                 publishButton.disabled = false;
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Something went wrong!',
+                confirmButtonColor: '#ef476f'
+            });
+            publishButton.disabled = false;
         });
     } else {
         publishButton.disabled = false;
