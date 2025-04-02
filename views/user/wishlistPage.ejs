@@ -24,39 +24,47 @@
     <section class="wishlist-section">
         <div class="container">
             <h1 class="wishlist-title">My Wishlist</h1>
-            <% if (wishlist && wishlist.products && wishlist.products.length > 0) { %>
-                <div class="wishlist-grid">
+            <div class="wishlist-grid">
+                <% if (wishlist && wishlist.products && wishlist.products.length > 0) { %>
                     <% wishlist.products.forEach(function(item) { %>
-                        <div class="wishlist-item">
-                            <div class="item-image">
-                                <img src="/uploads/product-images/<%= item.productId.productImage[0] %>" 
-                                     alt="<%= item.productId.productName %>" />
+                        <% if (item && item.productId) { %>
+                            <div class="wishlist-item">
+                                <div class="item-image">
+                                    <% if (item.productId.productImage && item.productId.productImage[0]) { %>
+                                        <img src="/uploads/product-images/<%= item.productId.productImage[0] %>" 
+                                             alt="<%= item.productId.productName || 'Product Image' %>" />
+                                    <% } else { %>
+                                        <img src="/img/default-product.jpg" alt="Default Product Image" />
+                                    <% } %>
+                                </div>
+                                <div class="item-details">
+                                    <h3 class="item-name">
+                                        <a href="/productDetails?id=<%= item.productId._id %>">
+                                            <%= item.productId.productName || 'Product Name Not Available' %>
+                                        </a>
+                                    </h3>
+                                    <p class="item-price">
+                                        ₹<%= item.productId.salePrice || 0 %>
+                                    </p>
+                                </div>
+                                <div class="item-actions">
+                                    <button class="btn-add" onclick="addToCart('<%= item.productId._id %>')">
+                                        Add to Cart
+                                    </button>
+                                    <button class="btn-remove" onclick="removeFromWishlist('<%= item.productId._id %>')">
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
-                            <div class="item-details">
-                                <h3 class="item-name">
-                                    <a href="/productDetails?id=<%= item.productId._id %>">
-                                        <%= item.productId.productName %>
-                                    </a>
-                                </h3>
-                                <p class="item-price">₹<%= item.productId.salePrice %></p>
-                            </div>
-                            <div class="item-actions">
-                                <button class="btn-add" onclick="addToCart('<%= item.productId._id %>')">
-                                    Add to Cart
-                                </button>
-                                <button class="btn-remove" onclick="removeFromWishlist('<%= item.productId._id %>')">
-                                    ✕
-                                </button>
-                            </div>
-                        </div>
+                        <% } %>
                     <% }); %>
-                </div>
-            <% } else { %>
-                <div class="empty-wishlist">
-                    <p>Your wishlist is empty!</p>
-                    <a href="/shopPage" class="btn-shop">Explore Products</a>
-                </div>
-            <% } %>
+                <% } else { %>
+                    <div class="empty-wishlist">
+                        <p>Your wishlist is empty!</p>
+                        <a href="/shopPage" class="btn-shop">Explore Products</a>
+                    </div>
+                <% } %>
+            </div>
         </div>
     </section>
 </main>

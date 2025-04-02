@@ -5,17 +5,24 @@ const { orderSuccess } = require('./cartController');
 
 
 const wishlist = async(req,res)=>{
-
     try {
         const userId = req.session.user;
         const userData = await User.findById(userId).lean();
-        const wishlist = await Wishlist.findOne({ userId }).populate('products.productId').lean();
-        if (wishlist && wishlist.products.length > 0) {
-            console.log("First product details:", wishlist.products[0].productId);
-          }
-        res.render('wishlistPage',{
+        const wishlistData = await Wishlist.findOne({ userId }).populate('products.productId').lean();
+
+        // Filter out any null products and ensure all required fields exist
+        const safeWishlist = {
+            products: wishlistData?.products?.filter(item => 
+                item && 
+                item.productId && 
+                item.productId.productImage &&
+                item.productId.productImage.length > 0
+            ) || []
+        };
+
+        res.render('wishlistPage', {
             user: userData,
-            wishlist: wishlist || { products: [] }
+            wishlist: safeWishlist
         });
     } catch (error) {
         console.error('Error retrieving wishlist data:', error);
