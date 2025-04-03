@@ -7,13 +7,36 @@ const Cart = require('../../models/cartSchema');
 const crypto = require('crypto');
 const WalletTransaction = require('../../models/walletSchema');  // add this line
 const { v4: uuidv4 } = require('uuid'); // Add this line
+const multer = require('multer');
+const path = require('path');
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'public/uploads/review-images');
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only images are allowed!'));
+        }
+    }
+});
 
 const instance = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,         
     key_secret: process.env.RAZORPAY_KEY_SECRET   
 });
 
-// Add this helper function at the top
 function calculateOrderStatus(items) {
     const statusCounts = items.reduce((acc, item) => {
         acc[item.status] = (acc[item.status] || 0) + 1;
@@ -22,12 +45,11 @@ function calculateOrderStatus(items) {
 
     const totalItems = items.length;
 
-    // If all items have the same status, use that status
     if (Object.keys(statusCounts).length === 1) {
         return items[0].status;
     }
 
-    // For mixed statuses, use the most significant status
+   
     if (statusCounts['Delivered']) return 'Delivered';
     if (statusCounts['Out for Delivery']) return 'Out for Delivery';
     if (statusCounts['Shipped']) return 'Shipped';
@@ -35,11 +57,10 @@ function calculateOrderStatus(items) {
     if (statusCounts['Return Requested']) return 'Return Requested';
     if (statusCounts['Returned']) return 'Returned';
     
-    // Default to 'Pending' if no other status applies
+    
     return 'Pending';
 }
 
-// Add this helper function near the top
 function calculateDisplayStatus(items) {
     const statuses = items.map(item => item.status);
     const uniqueStatuses = new Set(statuses);
@@ -49,12 +70,10 @@ function calculateDisplayStatus(items) {
     return 'Mixed Status';
 }
 
-// Add this helper function
 function getTimelineSteps(status) {
-    // Base timeline steps
+
     const baseSteps = ['Pending', 'Shipped', 'Out for Delivery', 'Delivered'];
     
-    // Special case statuses
     const specialStatuses = {
         'Cancelled': ['Pending', 'Cancelled'],
         'Return Requested': ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Return Requested'],
@@ -62,7 +81,6 @@ function getTimelineSteps(status) {
         'Return Declined': ['Pending', 'Shipped', 'Out for Delivery', 'Delivered', 'Return Requested', 'Return Declined']
     };
 
-    // If status is special, use its specific timeline
     return specialStatuses[status] || baseSteps;
 }
 
@@ -108,7 +126,7 @@ const viewOrderDetails = async (req, res) => {
             user: req.session.user,
             order: order,
             address: selectedAddress,
-            getTimelineSteps: getTimelineSteps // Pass the function to the view
+            getTimelineSteps: getTimelineSteps
         });
     } catch (error) {
         console.error('Error viewing order details:', error);
@@ -130,7 +148,7 @@ const cancelOrder = async (req, res) => {
       return res.redirect(`/order/${orderId}?error=Cancellation not allowed at this stage`);
     }
     
-    // Restore product stock for all items
+   
     for (const item of order.items) {
       const product = await Product.findById(item.productId);
       if (product) {
@@ -145,7 +163,7 @@ const cancelOrder = async (req, res) => {
       Cancelled: new Date()
     };
 
-    // Refund: calculate refund for only non-cancelled items
+ 
     if (
       (order.paymentMethod === 'Online' || order.paymentMethod === 'Wallet') &&
       order.paymentStatus === 'Completed'
@@ -153,7 +171,7 @@ const cancelOrder = async (req, res) => {
       const user = await User.findById(order.user);
       if (user) {
         const refundableAmount = order.items.reduce((total, item) => {
-          // If an item is already cancelled individually, do not count its amount
+          
           if (item.status && item.status === 'Cancelled') {
             return total;
           }
@@ -189,26 +207,16 @@ const submitReview = async (req, res) => {
         const { orderId, productId, rating, title, review } = req.body;
         const userId = req.session.user;
 
-        // Validate inputs
-        if (!rating || !title || !review) {
-            return res.status(400).json({
-                success: false,
-                message: 'Rating, title and review are required'
-            });
-        }
+        // Get uploaded images
+        const reviewImages = req.files ? req.files.map(file => file.filename) : [];
 
-        // Update order to mark item as reviewed
+        // Update order item as reviewed
         await Order.updateOne(
-            { 
-                _id: orderId,
-                'items.productId': productId 
-            },
-            { 
-                $set: { 'items.$.reviewed': true }
-            }
+            { _id: orderId, 'items.productId': productId },
+            { $set: { 'items.$.reviewed': true } }
         );
 
-        // Add review to product
+        // Add review with images to product
         const updatedProduct = await Product.findByIdAndUpdate(
             productId,
             {
@@ -218,6 +226,7 @@ const submitReview = async (req, res) => {
                         rating: Number(rating),
                         title: title,
                         review: review,
+                        images: reviewImages,
                         createdAt: new Date()
                     }
                 }
@@ -290,21 +299,21 @@ const onlinePaymentSuccess = async (req, res) => {
             return res.status(400).json({ error: 'Cart is empty' });
         }
 
-        // Calculate original total before any discounts
+       
         const originalTotalAmount = cart.items.reduce((total, item) => {
             return total + item.productId.salePrice * item.quantity;
         }, 0);
 
-        // Get coupon discount if applied
+      
         const couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
         
-        // Calculate final total after coupon discount
+       
         const finalAmount = originalTotalAmount - couponDiscount;
 
-        // Create order items with proper price tracking
+   
         const orderItems = cart.items.map(item => {
             const itemTotal = item.productId.salePrice * item.quantity;
-            // Calculate item's proportional share of coupon discount if coupon exists
+        
             const itemProportion = itemTotal / originalTotalAmount;
             const itemCouponShare = couponDiscount ? (couponDiscount * itemProportion) : 0;
 
@@ -337,7 +346,7 @@ const onlinePaymentSuccess = async (req, res) => {
 
         await order.save();
 
-        // Update product quantities
+   
         for (const item of cart.items) {
             await Product.findByIdAndUpdate(
                 item.productId._id, 
@@ -345,12 +354,12 @@ const onlinePaymentSuccess = async (req, res) => {
             );
         }
 
-        // Clear cart and coupon
+     
         cart.items = [];
         await cart.save();
         req.session.coupon = undefined;
 
-        // Store order ID in session
+       
         req.session.lastOrderId = order._id;
 
         return res.json({ success: true });
@@ -365,33 +374,33 @@ const walletPaymentOrder = async (req, res) => {
     const userId = req.session.user;
     const { addressId } = req.body;
     
-    // Get the cart and calculate total
+  
     const cart = await Cart.findOne({ userId }).populate('items.productId');
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({ error: 'Cart is empty' });
     }
     
-    // Calculate original total before any discounts
+    
     const originalTotalAmount = cart.items.reduce((total, item) => {
       return total + item.productId.salePrice * item.quantity;
     }, 0);
     
-    // Get coupon discount if applied
+  
     const couponDiscount = req.session.coupon ? req.session.coupon.offerPrice : 0;
     
-    // Calculate final total after coupon
+
     const finalAmount = originalTotalAmount - couponDiscount;
     
-    // Fetch user to check wallet balance
+   
     const user = await User.findById(userId);
     if (user.wallet < finalAmount) {
       return res.status(400).json({ error: 'Insufficient wallet balance' });
     }
     
-    // Create order items with coupon share calculations
+   
     const orderItems = cart.items.map(item => {
       const itemTotal = item.productId.salePrice * item.quantity;
-      // Calculate item's proportional share of coupon discount if coupon exists
+ 
       const itemProportion = itemTotal / originalTotalAmount;
       const itemCouponShare = couponDiscount ? (couponDiscount * itemProportion) : 0;
 
@@ -407,7 +416,7 @@ const walletPaymentOrder = async (req, res) => {
       };
     });
 
-    // Create order
+  
     const order = new Order({
       orderId: `ORD${uuidv4().substring(0, 8).toUpperCase()}`,
       user: userId,
@@ -425,11 +434,11 @@ const walletPaymentOrder = async (req, res) => {
 
     await order.save();
     
-    // Deduct from wallet and save user
+  
     user.wallet -= finalAmount;
     await user.save();
     
-    // Create wallet transaction
+
     await new WalletTransaction({
       userId: userId,
       amount: finalAmount,
@@ -438,7 +447,7 @@ const walletPaymentOrder = async (req, res) => {
       orderId: order._id
     }).save();
     
-    // Update products stock
+
     for (const item of cart.items) {
       await Product.findByIdAndUpdate(
         item.productId._id, 
@@ -446,7 +455,6 @@ const walletPaymentOrder = async (req, res) => {
       );
     }
 
-    // Clear cart and coupon
     cart.items = [];
     await cart.save();
     req.session.coupon = undefined;
@@ -483,30 +491,28 @@ const cancelOrderItem = async (req, res) => {
         const item = order.items[itemIndex];
         let refundAmount = item.price * item.quantity;
 
-        // Calculate coupon refund if coupon was applied
+       
         if (order.couponApplied && order.couponDiscount > 0) {
             // Calculate total value of all items before coupon
             const totalItemsValue = order.items.reduce((sum, item) => 
                 sum + (item.price * item.quantity), 0);
 
-            // Calculate this item's proportion of the total
+          
             const itemProportion = (item.price * item.quantity) / totalItemsValue;
             
-            // Calculate this item's share of the coupon discount
+           
             const itemCouponShare = order.couponDiscount * itemProportion;
             
-            // Store the coupon share for reference
+           
             item.couponShare = itemCouponShare;
             
-            // Add the proportional coupon amount to the refund
+           
             refundAmount = (item.price * item.quantity) - itemCouponShare;
         }
 
-        // Update item status
         item.status = 'Cancelled';
         item.cancellationReason = reason;
 
-        // Process refund to wallet
         if (order.paymentStatus === 'Completed' && 
             (order.paymentMethod === 'Online' || order.paymentMethod === 'Wallet')) {
             
@@ -515,11 +521,11 @@ const cancelOrderItem = async (req, res) => {
                 return res.status(404).json({ success: false, message: 'User not found' });
             }
 
-            // Add refund to wallet
+          
             user.wallet = (user.wallet || 0) + refundAmount;
             await user.save();
 
-            // Create wallet transaction record
+           
             await new WalletTransaction({
                 userId: userId,
                 type: 'Credit',
@@ -529,7 +535,7 @@ const cancelOrderItem = async (req, res) => {
             }).save();
         }
 
-        // Update order status if all items are cancelled
+     
         const activeItems = order.items.filter(item => 
             !['Cancelled', 'Returned'].includes(item.status));
         if (activeItems.length === 0) {
@@ -559,7 +565,7 @@ const returnOrderItem = async (req, res) => {
         const { orderId, itemId, reason } = req.body;
         const userId = req.session.user;
 
-        // Find order using _id since that's what we're passing from the client
+       
         const order = await Order.findOne({ 
             _id: orderId,  // Changed from orderId to _id
             user: userId 
@@ -572,7 +578,6 @@ const returnOrderItem = async (req, res) => {
             });
         }
 
-        // Find the specific item
         const item = order.items.find(i => i._id.toString() === itemId);
         
         if (!item) {
@@ -589,14 +594,11 @@ const returnOrderItem = async (req, res) => {
             });
         }
 
-        // Update item status
         item.status = 'Return Requested';
         item.returnReason = reason;
-        
-        // Update order status if needed
+     
         order.orderStatus = calculateOrderStatus(order.items);
 
-        // Add timestamp
         if (!order.statusUpdates) {
             order.statusUpdates = {};
         }
@@ -633,13 +635,12 @@ const loadReviewPage = async (req, res) => {
             return res.redirect('/orders');
         }
 
-        // Fetch product details
         const product = await Product.findById(productId);
         if (!product) {
             return res.redirect(`/order/${orderId}`);
         }
 
-        // Verify if the product is in the order and eligible for review
+        
         const orderItem = order.items.find(item => 
             item.productId.toString() === productId && 
             !item.reviewed && 
@@ -664,22 +665,21 @@ const loadReviewPage = async (req, res) => {
 
 const createOrder = async (req, res) => {
     try {
-        // ...existing validation code...
+ 
 
         const cartItems = await Cart.findOne({ userId }).populate('items.productId');
         
-        // Calculate original total before coupon
+      
         const originalTotal = cartItems.items.reduce((total, item) => 
             total + (item.productId.salePrice * item.quantity), 0);
 
-        // Get coupon details from session if applied
         const couponApplied = req.session.coupon ? true : false;
         const couponDiscount = req.session.coupon ? req.session.coupon.discount : 0;
         
-        // Calculate final total after coupon
+    
         const finalTotal = originalTotal - couponDiscount;
 
-        // Create order items with coupon share calculations
+       
         const orderItems = cartItems.items.map(item => {
             const itemTotal = item.productId.salePrice * item.quantity;
             const itemProportion = itemTotal / originalTotal;
@@ -707,7 +707,7 @@ const createOrder = async (req, res) => {
             couponDiscount
         });
 
-        // ...rest of order creation logic...
+       
     } catch (error) {
         console.error('Error creating order:', error);
         return res.status(500).json({ success: false, message: 'Error creating order' });
@@ -724,5 +724,6 @@ module.exports = {
     walletPaymentOrder,
     cancelOrderItem,
     returnOrderItem,
-    createOrder
+    createOrder,
+    upload
 };

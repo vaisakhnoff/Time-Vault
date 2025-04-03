@@ -655,7 +655,7 @@ const downloadSalesReport = async (req, res) => {
         ]);
 
         if (format === 'excel') {
-            // Generate Excel file
+         
             const workbook = XLSX.utils.book_new();
             
             const worksheetData = salesReport.map(day => ({
@@ -668,7 +668,7 @@ const downloadSalesReport = async (req, res) => {
             const worksheet = XLSX.utils.json_to_sheet(worksheetData);
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Sales Report');
 
-            // Create buffer
+           
             const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -676,7 +676,7 @@ const downloadSalesReport = async (req, res) => {
             return res.send(buffer);
 
         } else if (format === 'pdf') {
-            // Generate PDF file
+            
             const doc = new PDFDocument();
             const buffers = [];
 

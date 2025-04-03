@@ -405,7 +405,7 @@ const loadShopPage = async (req, res) => {
 
         let query = { isBlocked: false };
         
-        // Category filter
+   
         if (req.query.category) {
             const category = await Category.findOne({ 
                 slug: req.query.category // Assuming you have a slug field in your category model
@@ -415,22 +415,22 @@ const loadShopPage = async (req, res) => {
             }
         }
 
-        // Search filter
+       
         if (req.query.search) {
             query.productName = { $regex: req.query.search, $options: 'i' };
         }
 
-        // Category filter
+       
         if (req.query.category) {
             query.category = req.query.category;
         }
 
-        // Brand filter
+    
         if (req.query.brand) {
             query.brand = req.query.brand;
         }
 
-        // Price range filter
+       
         if (req.query.minPrice || req.query.maxPrice) {
             query.regularPrice = {};
             if (req.query.minPrice) {
@@ -485,7 +485,6 @@ const loadShopPage = async (req, res) => {
         const totalProducts = await Product.countDocuments(query);
         const totalPages = Math.ceil(totalProducts / limit);
 
-        // Check if the request is AJAX
         if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
             return res.json({
                 products,
@@ -605,7 +604,7 @@ const sendForgotOtp = async (req, res) => {
   
   
   
-// Add this new function before the module.exports
+
 const loadContactPage = async (req, res) => {
     try {
         const userId = req.session.user;
@@ -626,18 +625,18 @@ const loadContactPage = async (req, res) => {
     }
 };
 
-// Add this to handle contact form submissions
+
 const submitContactForm = async (req, res) => {
     try {
         const { name, email, subject, message } = req.body;
         
-        // Validate input
+      
         if (!name || !email || !subject || !message) {
             return res.redirect('/contact?message=All fields are required&status=error');
         }
 
 
-        // Send confirmation email
+       
         const emailContent = `
             Thank you for contacting us!
             

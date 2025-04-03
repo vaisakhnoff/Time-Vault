@@ -13,7 +13,7 @@ const productDetails = async(req,res)=>{
             return res.redirect('/pageNotFound');
         }
 
-        // Get product with populated fields
+       
         const product = await Product.findById(productId)
             .populate('category')
             .populate('brand')
@@ -76,6 +76,10 @@ const productDetails = async(req,res)=>{
         res.redirect('/pageNotFound');
     }
 }
+
+
+
+
 
 module.exports = {
     productDetails

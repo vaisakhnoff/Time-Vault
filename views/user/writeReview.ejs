@@ -194,36 +194,12 @@ function removeImage(button) {
 document.getElementById('reviewForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    // Get form values
-    const rating = document.querySelector('input[name="rating"]:checked')?.value;
-    const title = document.querySelector('input[name="title"]').value.trim();
-    const review = document.querySelector('textarea[name="review"]').value.trim();
-
-    // Validate inputs
-    if (!rating || !title || !review) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Please fill all fields',
-            text: 'Rating, title and review are required'
-        });
-        return;
-    }
-
-    // Create form data
-    const formData = new FormData();
-    formData.append('orderId', this.elements['orderId'].value);
-    formData.append('productId', this.elements['productId'].value);
-    formData.append('rating', rating);
-    formData.append('title', title);
-    formData.append('review', review);
-
+    const formData = new FormData(this);
+    
     try {
         const response = await fetch('/submitReview', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(Object.fromEntries(formData))
+            body: formData
         });
 
         const result = await response.json();
@@ -235,21 +211,17 @@ document.getElementById('reviewForm').addEventListener('submit', async function(
                 text: result.message,
                 timer: 2000
             }).then(() => {
-                window.location.href = `/order/${this.elements['orderId'].value}`;
+                window.location.href = `/order/${formData.get('orderId')}`;
             });
         } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: result.message || 'Failed to submit review'
-            });
+            throw new Error(result.message);
         }
     } catch (error) {
         console.error('Error:', error);
         Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'Something went wrong while submitting the review'
+            text: error.message || 'Failed to submit review'
         });
     }
 });

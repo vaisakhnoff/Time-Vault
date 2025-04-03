@@ -114,20 +114,17 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Update both global order status and individual item statuses
     order.orderStatus = newStatus;
     
-    // Update all items that aren't in a final state
     order.items.forEach(item => {
-      // Don't update items that are already cancelled or returned
+
       if (!['Cancelled', 'Returned', 'Return Requested', 'Return Declined'].includes(item.status)) {
         item.status = newStatus;
       }
     });
 
-    // Handle special cases
     if (newStatus === 'Cancelled') {
-      // Restore product stock for non-cancelled items
+
       for (const item of order.items) {
         if (item.status !== 'Cancelled') {
           const product = await Product.findById(item.productId);
@@ -139,7 +136,6 @@ const updateOrderStatus = async (req, res) => {
         }
       }
 
-      // Process refund if payment was completed
       if (order.paymentStatus === 'Completed') {
         const customer = await User.findById(order.user);
         if (customer) {
@@ -156,12 +152,10 @@ const updateOrderStatus = async (req, res) => {
       }
     }
 
-    // Update status timestamps
     order.statusUpdates = order.statusUpdates || {};
     const now = new Date();
     order.statusUpdates[newStatus] = now;
     
-    // Also update timestamps for individual items
     order.items.forEach(item => {
       if (item.status === newStatus) {
         order.statusUpdates[`item-${item._id}-${newStatus}`] = now;
@@ -214,7 +208,6 @@ const listReturnRequests = async (req, res) => {
       });
     });
 
-    // Sort by date, most recent first
     returnRequests.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
     
     res.render('returnRequests', { 
@@ -263,32 +256,25 @@ const processReturnRequest = async (req, res) => {
         await product.save();
       }
 
-      // Calculate refund amount with proportional coupon discount
       let refundAmount = item.price * item.quantity;
 
-      // If order had a coupon applied, calculate this item's share of the discount
       if (order.couponApplied && order.couponDiscount > 0) {
         // Calculate total value of all items before coupon
         const totalOrderValue = order.items.reduce((sum, item) => 
           sum + (item.price * item.quantity), 0);
 
-        // Calculate this item's proportion of the total order value
         const itemProportion = (item.price * item.quantity) / totalOrderValue;
         
-        // Calculate this item's share of the coupon discount
         const itemCouponShare = order.couponDiscount * itemProportion;
         
-        // Subtract the coupon share from the refund amount
         refundAmount -= itemCouponShare;
       }
 
-      // Process refund
       const user = await User.findById(order.user._id);
       if (user) {
         user.wallet = (user.wallet || 0) + refundAmount;
         await user.save();
 
-        // Create wallet transaction record
         await new WalletTransaction({
           userId: order.user._id,
           amount: refundAmount,
@@ -303,7 +289,6 @@ const processReturnRequest = async (req, res) => {
       item.status = 'Return Declined';
     }
 
-    // Update overall order status if needed
     if (!order.items.some(i => i.status === 'Return Requested')) {
       const allApprovedOrProcessed = order.items.every(i => 
         i.status === 'Returned' || 
@@ -352,10 +337,8 @@ async function generateExcelReport(orders, res) {
         const actualCouponDiscount = originalAmount - order.totalAmount;
         worksheet.addRow({
             orderId: order.orderId,
-            // ... rest of the fields ...
         });
     });
-    // ... rest of the function ...
 }
 
 module.exports = {

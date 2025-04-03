@@ -218,7 +218,6 @@ const editProduct = async (req, res) => {
             });
         }
 
-        // Handle product name duplication check
         if (updatedData.productName && 
             updatedData.productName !== existingProduct.productName) {
             const duplicate = await Product.findOne({ 
@@ -232,10 +231,9 @@ const editProduct = async (req, res) => {
             }
         }
 
-        // Handle image updates
         let images = [...existingProduct.productImage]; // Create a copy of existing images
         if (req.files && req.files.length > 0) {
-            // Delete old images from filesystem
+
             for (const oldImage of existingProduct.productImage) {
                 const imagePath = path.join('public', 'uploads', 'product-images', oldImage);
                 if (fs.existsSync(imagePath)) {
@@ -243,7 +241,6 @@ const editProduct = async (req, res) => {
                 }
             }
 
-            // Process and save new images
             images = [];
             for (const file of req.files) {
                 const resizedFileName = 'resized-' + file.filename;
@@ -262,7 +259,6 @@ const editProduct = async (req, res) => {
             }
         }
         
-        // Update product data
         const categoryDoc = await Category.findOne({ name: updatedData.category });
         const brandDoc = await Brand.findOne({ brandName: updatedData.brand });
 
@@ -319,28 +315,21 @@ const addProductOffer = async (req, res) => {
       });
     }
 
-    // Store baseline sale price from the current salePrice if not already stored
     if (product.oldSalePrice === undefined) {
       product.oldSalePrice = product.salePrice;
     }
 
-    // Update the product's offer percentage
     product.productOffer = percentage;
     
-    // Calculate discount multipliers based on each offer:
-    // For product: 1 - (productOffer/100)
-    // For category: if available, 1 - (categoryOffer/100), else 1
-    // For brand: if available, 1 - (brandOffer/100), else 1
+    
     const productFactor = product.productOffer > 0 ? (1 - product.productOffer / 100) : 1;
     const categoryFactor = (product.category && product.category.categoryOffer > 0)
       ? (1 - product.category.categoryOffer / 100) : 1;
     const brandFactor = (product.brand && product.brand.brandOffer > 0)
       ? (1 - product.brand.brandOffer / 100) : 1;
       
-    // Choose the best discount multiplier (lowest number gives the highest discount)
     const finalFactor = Math.min(productFactor, categoryFactor, brandFactor);
     
-    // Apply the discount on the stored baseline sale price (oldSalePrice)
     product.salePrice = product.oldSalePrice * finalFactor;
 
     await product.save();
@@ -377,20 +366,15 @@ const removeProductOffer = async (req, res) => {
       });
     }
     
-    // Remove the product offer
     product.productOffer = 0;
 
-    // Calculate discount multipliers from category and brand only:
     const categoryFactor = (product.category && product.category.categoryOffer > 0)
       ? (1 - product.category.categoryOffer / 100) : 1;
     const brandFactor = (product.brand && product.brand.brandOffer > 0)
       ? (1 - product.brand.brandOffer / 100) : 1;
       
-    // The best discount multiplier among category and brand offers
     const finalFactor = Math.min(categoryFactor, brandFactor);
     
-    // Revert salePrice to the stored baseline with remaining offers applied.
-    // If oldSalePrice is not set/valid, fallback to regularPrice.
     const baseline = (typeof product.oldSalePrice !== 'undefined' && !isNaN(product.oldSalePrice))
                       ? product.oldSalePrice 
                       : product.regularPrice;

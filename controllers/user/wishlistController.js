@@ -74,13 +74,13 @@ const removeFromWishlist = async (req, res) => {
         if (!productId) {
             return res.status(400).json({ success: false, message: 'Product id is required' });
         }
-        // Find wishlist by user
+  
         let wishlist = await Wishlist.findOne({ userId: req.session.user });
         if (!wishlist) {
             return res.json({ success: false, message: "Wishlist not found" });
         }
 
-        // Filter out the product
+
         wishlist.products = wishlist.products.filter(
             (product) => product.productId.toString() !== productId
         );
